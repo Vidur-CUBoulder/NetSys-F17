@@ -19,6 +19,82 @@ int server_response(int sock_fd, struct sockaddr_in *remote_socket, \
   return nbytes;
 }
 
+void send_file_from_client(char *filename,int sock_fd,\
+                    struct sockaddr_in *remote)
+{
+  if(filename == NULL) {
+    printf("Please specify a filename to send to the server\n");
+    return;
+  }
+
+  udp_data_packet client_data_packet;
+  memset(&client_data_packet.buffer, '\0', sizeof(client_data_packet.buffer));
+  
+  printf("global_client_buffer[1]: %s\n", filename);
+
+  FILE *fp;
+  fp = fopen(filename, "rb");
+  int packet_size = MAX_BUFFER_LENGTH;
+  int pkt_count = 0;
+  unsigned int remote_length = 0;
+
+  /* Find the size of the file and send that information to the server */
+  fseek(fp, 0L, SEEK_END);
+  client_data_packet.file_size = ftell(fp);
+  client_data_packet.file_stream_size =\
+            PACKET_COUNT(client_data_packet.file_size);
+  
+  printf("file_size: %d\n", client_data_packet.file_size);
+  /* Send the size of the file over to the server */
+
+  server_response_1(sock_fd, *remote, &client_data_packet.file_size,\
+            sizeof(client_data_packet.file_size));
+
+  rewind(fp);
+  
+  server_response_1(sock_fd, *remote, &client_data_packet.file_stream_size,\
+      sizeof(client_data_packet.file_stream_size));
+ 
+  printf("file_stream_size: %d\n", client_data_packet.file_stream_size);
+
+  if(fp != NULL) {
+    while(fread(&(client_data_packet.buffer), 1, packet_size, fp) > 0) 
+    {
+      /* Send the seq number of the packet first and wait for ack */
+      server_response_1(sock_fd, *remote, &(client_data_packet.seq_number),\
+          sizeof(client_data_packet.seq_number));
+
+      /* Wait for an ack! */
+      remote_length = sizeof(remote);
+      int nbytes = recvfrom(sock_fd, &client_data_packet.ack_nack, sizeof(uint8_t),\
+          0, (struct sockaddr *)remote, &remote_length);
+      if(nbytes < 0) {
+        perror("ERROR:recvfrom()");
+      }
+     
+      server_response_1(sock_fd, *remote, &client_data_packet.buffer,\
+          sizeof(client_data_packet.buffer));
+
+      /* Send the data packet and wait for confirmation from the client */
+      client_data_packet.seq_number = ++pkt_count;
+      
+      if(client_data_packet.seq_number == client_data_packet.file_stream_size)
+      {
+        /* This is the last packet; change the size that is read */
+        packet_size = client_data_packet.file_size%MAX_BUFFER_LENGTH;
+      }
+
+    }  
+  } else {
+    printf("Unable to open the file for reading\n");
+  }
+    
+  fclose(fp);
+
+  return;
+}
+
+
 void send_client_data(int sock_fd, struct sockaddr_in *remote,\
                           int *packet_count)
 {
@@ -60,14 +136,13 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
                       sizeof(data_packet->file_size)); 
 
   /* b. get the number of packets that are going to be sent */
-  
   data_packet->file_stream_size = PACKET_COUNT(data_packet->file_size);
   
   server_response(sock_fd, remote, &(data_packet->file_stream_size),\
       sizeof(data_packet->file_stream_size));
   
   uint32_t packet_count = 0;
-  int packet_size = MAX_BUFFER_LENGTH; 
+  uint32_t packet_size = MAX_BUFFER_LENGTH; 
  
   FILE *fp = NULL;
   if(filename == stdout) {
@@ -95,7 +170,7 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
     }
     
     /* 3. Wait for the server to send back the stream of data */
-    memset(data_packet->buffer, '\0', sizeof(MAX_BUFFER_LENGTH));
+    memset(data_packet->buffer, '\0', MAX_BUFFER_LENGTH);
     server_response(sock_fd, remote, &(data_packet->buffer),\
         sizeof(data_packet->buffer));
 
@@ -174,6 +249,9 @@ int main(int argc, char *argv[])
 #ifdef SERVER_RESPONSE_ENABLED
   if(!strcmp(global_client_buffer[0], valid_commands[3])) {
     receive_data_from_server(sock_fd, &remote, &data_packet, stdout);
+  } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
+    printf("Sending a file from the client to the server to store!\n");
+    send_file_from_client(global_client_buffer[1], sock_fd, &remote);
   } else {
     char filename[] = "temp_file_1";
     receive_data_from_server(sock_fd, &remote, &data_packet, filename);

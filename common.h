@@ -16,7 +16,7 @@
 #include<openssl/crypto.h>
 #include<openssl/md5.h>
 
-#define MAX_BUFFER_LENGTH 12
+#define MAX_BUFFER_LENGTH 1000
 
 #define UDP_SOCKETS SOCK_DGRAM
 
@@ -24,7 +24,6 @@
 
 #define PACKET_COUNT(x) ((x%MAX_BUFFER_LENGTH) == 0) ?\
                       (x/MAX_BUFFER_LENGTH) : ((x/MAX_BUFFER_LENGTH) + 1)
-
 
 typedef enum infra_return_e {
   NULL_VALUE = 0,
@@ -103,6 +102,19 @@ int client_response(int sock_fd, struct sockaddr_in remote_socket, \
   return nbytes;
 }
 
+int server_response_1(int sock_fd, struct sockaddr_in remote_socket, \
+            void *response, int response_size)
+{
+  int nbytes = sendto(sock_fd, response, response_size, 0,\
+                (struct sockaddr *)&remote_socket,\
+                (socklen_t)sizeof(struct sockaddr_in));
+  if(nbytes < 0) {
+    perror("server:SENDTO");
+    return nbytes;
+  }
+
+  return nbytes;
+}
 
 
 

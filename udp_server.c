@@ -146,6 +146,88 @@ infra_return validate_input_command(char *input_command, int *num)
   return COMMAND_FAILURE;
 }
 
+void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
+{
+  udp_data_packet data_packet;
+  data_packet.file_size = 0;
+  data_packet.file_stream_size = 0;
+
+  /* a. Get the size of the file that being sent by the client */
+  int32_t remote_length = sizeof(remote);
+  int nbytes = recvfrom(sock_fd, &data_packet.file_size, sizeof(uint32_t),\
+      0, (struct sockaddr *)remote, &remote_length);
+  if(nbytes < 0) {
+    perror("ERROR:recvfrom()");
+  }
+   
+  printf("file_size: %d\n", data_packet.file_size);
+
+  /* b. get the number of packets that are going to be sent */
+  data_packet.file_stream_size = PACKET_COUNT(data_packet.file_size);
+  nbytes = recvfrom(sock_fd, &data_packet.file_stream_size, sizeof(uint32_t),\
+      0, (struct sockaddr *)remote, &remote_length);
+  if(nbytes < 0) {
+    perror("ERROR:recvfrom()");
+  }
+  
+  printf("file_stream_size: %d\n", data_packet.file_stream_size);
+
+  uint32_t packet_count = 0;
+  uint32_t packet_size = MAX_BUFFER_LENGTH; 
+  
+  char filename[] = "temp_file.png";
+
+  FILE *fp = NULL;
+  fp = fopen(filename, "wb");
+  /* Query for the number of packets that the server is about
+   * to send back to the client. The client in turn will reply
+   * with an ack/nack every time it receives a stream sent by
+   * the server.
+   */
+  while(packet_count != data_packet.file_stream_size) {
+
+    nbytes = recvfrom(sock_fd, &data_packet.seq_number, sizeof(uint32_t),\
+        0, (struct sockaddr *)remote, &remote_length);
+    if(nbytes < 0) {
+      perror("ERROR:recvfrom()");
+    }
+  
+    printf("seq_number: %d\n", data_packet.seq_number);
+
+    /* 2. Send ACK/NACK */
+    data_packet.ack_nack = 1;
+    nbytes = sendto(sock_fd, &(data_packet.ack_nack), sizeof(uint8_t),\
+        0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
+    if(nbytes < 0) {
+      perror("ERROR: sendto()");
+      exit(1);
+    }
+    
+    /* 3. Wait for the server to send back the stream of data */
+    memset(data_packet.buffer, '\0', MAX_BUFFER_LENGTH);
+    nbytes = recvfrom(sock_fd, &data_packet.buffer, sizeof(data_packet.buffer),\
+        0, (struct sockaddr *)remote, &remote_length);
+    if(nbytes < 0) {
+      perror("ERROR:recvfrom()");
+    }
+   
+    if(data_packet.seq_number == (data_packet.file_stream_size-1))
+    {
+      /* This is the last packet; change the size that is written */
+      packet_size = (data_packet.file_size)%MAX_BUFFER_LENGTH;
+      printf("last packet_size: %d\n", packet_size);
+    }
+  
+    fwrite(&(data_packet.buffer), 1, packet_size, fp);
+    packet_count++;
+
+  }
+  
+  fclose(fp);
+  return;
+}
+
+
 void execute_client_commands(int sock_fd, struct sockaddr_in *remote)
 {
   printf("command: %s\n", global_server_buffer[0]);
@@ -159,7 +241,7 @@ void execute_client_commands(int sock_fd, struct sockaddr_in *remote)
       case PUT:     printf("put\n");
                     //receive the transmitted file from the client.
                     printf("in the PUT statement!\n");
-                    //get_filedata_from_server("temp_file", sock_fd, remote);  
+                    get_data_from_client(sock_fd, remote);
                     break;
 
       case GET:     printf("get\n");
