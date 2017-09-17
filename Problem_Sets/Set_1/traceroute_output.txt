@@ -1,0 +1,50 @@
+###Output of the traceroute.
+
+Wed Sep 13 13:23:05 MDT 2017
+traceroute to google.com (172.217.11.238), 30 hops max, 60 byte packets
+1  engr2-wrls-1-7-gw.int.colorado.edu (10.201.24.1)  2.909 ms  2.921 ms  2.918 ms
+2  engr-engr2.colorado.edu (128.138.81.36)  2.187 ms  2.499 ms  2.521 ms
+3  hut-engr.colorado.edu (128.138.81.134)  2.521 ms  2.518 ms  2.516 ms
+4  fw-hut.colorado.edu (128.138.81.250)  2.852 ms  2.862 ms  2.860 ms
+5  juniper-fw.colorado.edu (128.138.81.193)  4.066 ms  4.069 ms  4.067 ms
+6  frgp-i1-ucb.colorado.edu (198.59.55.10)  4.688 ms  3.633 ms  5.468 ms
+7  xe-0-0-1.core-910.frgp.net (192.43.217.170)  5.462 ms  4.837 ms  5.402 ms
+8  72.14.194.239 (72.14.194.239)  5.367 ms  3.753 ms  4.958 ms
+9  72.14.234.57 (72.14.234.57)  4.883 ms  3.767 ms  3.677 ms
+10  64.233.174.209 (64.233.174.209)  3.083 ms  2.895 ms  3.071 ms
+11  den02s01-in-f14.1e100.net (172.217.11.238)  3.332 ms  3.047 ms  3.917 ms
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Wed Sep 13 19:39:54 MDT 2017
+traceroute to google.com (216.58.217.14), 30 hops max, 60 byte packets
+1  engr2-wrls-1-7-gw.int.colorado.edu (10.201.24.1)  2.496 ms  3.039 ms  3.034 ms
+2  engr-engr2.colorado.edu (128.138.81.36)  3.021 ms  2.903 ms  3.408 ms
+3  hut-engr.colorado.edu (128.138.81.134)  8.899 ms  8.888 ms  8.874 ms
+4  fw-hut.colorado.edu (128.138.81.250)  6.507 ms  8.060 ms  8.081 ms
+5  juniper-fw.colorado.edu (128.138.81.193)  8.776 ms  8.730 ms  9.262 ms
+6  frgp-i1-ucb.colorado.edu (198.59.55.10)  12.228 ms  3.261 ms  3.715 ms
+7  xe-0-0-1.core-910.frgp.net (192.43.217.170)  4.226 ms  6.115 ms  5.274 ms
+8  72.14.194.239 (72.14.194.239)  5.931 ms  5.868 ms  5.850 ms
+9  72.14.234.59 (72.14.234.59)  6.409 ms  6.981 ms  7.510 ms
+10  209.85.250.237 (209.85.250.237)  5.383 ms  5.820 ms  3.651 ms
+11  den03s09-in-f14.1e100.net (216.58.217.14)  4.947 ms  4.419 ms  5.140 ms
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Wed Sep 13 21:39:58 MDT 2017
+traceroute to google.com (172.217.11.238), 30 hops max, 60 byte packets
+1  engr2-wrls-1-7-gw.int.colorado.edu (10.201.24.1)  1.745 ms  2.840 ms  3.396 ms
+2  engr-engr2.colorado.edu (128.138.81.36)  1.904 ms  1.938 ms  1.938 ms
+3  hut-engr.colorado.edu (128.138.81.134)  18.602 ms  18.796 ms  18.804 ms
+4  fw-hut.colorado.edu (128.138.81.250)  3.349 ms  3.335 ms  3.296 ms
+5  juniper-fw.colorado.edu (128.138.81.193)  3.315 ms  3.300 ms  3.306 ms
+6  frgp-i1-ucb.colorado.edu (198.59.55.10)  3.880 ms  3.482 ms  4.197 ms
+7  xe-0-0-1.core-910.frgp.net (192.43.217.170)  4.962 ms  4.958 ms  4.940 ms
+8  72.14.194.239 (72.14.194.239)  4.123 ms  4.094 ms  4.006 ms
+9  72.14.234.57 (72.14.234.57)  3.976 ms  3.961 ms  3.950 ms
+10  64.233.174.209 (64.233.174.209)  3.588 ms  3.273 ms  3.818 ms
+11  den02s01-in-f14.1e100.net (172.217.11.238)  3.808 ms  3.457 ms  3.787 ms:w
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+

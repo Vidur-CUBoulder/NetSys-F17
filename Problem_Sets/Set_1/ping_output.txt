@@ -1,0 +1,238 @@
+PING cs.colorado.edu (128.138.73.7) 300(328) bytes of data.
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=1 ttl=60 time=1.81 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=2 ttl=60 time=3.65 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=3 ttl=60 time=4.25 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=4 ttl=60 time=6.62 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=5 ttl=60 time=6.87 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=6 ttl=60 time=3.39 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=7 ttl=60 time=3.73 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=8 ttl=60 time=2.63 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=9 ttl=60 time=1.41 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=10 ttl=60 time=2.70 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=11 ttl=60 time=3.87 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=12 ttl=60 time=3.05 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=13 ttl=60 time=6.73 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=14 ttl=60 time=3.27 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=15 ttl=60 time=2.43 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=16 ttl=60 time=3.14 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=17 ttl=60 time=3.81 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=18 ttl=60 time=4.06 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=19 ttl=60 time=3.75 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=20 ttl=60 time=2.96 ms
+
+--- cs.colorado.edu ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19037ms
+rtt min/avg/max/mdev = 1.419/3.711/6.874/1.457 ms
+
+PING uscis.gov (173.252.133.166) 300(328) bytes of data.
+308 bytes from 173.252.133.166: icmp_seq=1 ttl=239 time=46.2 ms
+308 bytes from 173.252.133.166: icmp_seq=2 ttl=239 time=46.9 ms
+308 bytes from 173.252.133.166: icmp_seq=3 ttl=239 time=46.7 ms
+308 bytes from 173.252.133.166: icmp_seq=4 ttl=239 time=48.5 ms
+308 bytes from 173.252.133.166: icmp_seq=5 ttl=239 time=49.7 ms
+308 bytes from 173.252.133.166: icmp_seq=6 ttl=239 time=46.7 ms
+308 bytes from 173.252.133.166: icmp_seq=7 ttl=239 time=48.1 ms
+308 bytes from 173.252.133.166: icmp_seq=8 ttl=239 time=47.9 ms
+308 bytes from 173.252.133.166: icmp_seq=9 ttl=239 time=49.7 ms
+308 bytes from 173.252.133.166: icmp_seq=10 ttl=239 time=47.7 ms
+308 bytes from 173.252.133.166: icmp_seq=11 ttl=239 time=48.0 ms
+308 bytes from 173.252.133.166: icmp_seq=12 ttl=239 time=82.0 ms
+308 bytes from 173.252.133.166: icmp_seq=13 ttl=239 time=47.8 ms
+308 bytes from 173.252.133.166: icmp_seq=14 ttl=239 time=48.4 ms
+308 bytes from 173.252.133.166: icmp_seq=15 ttl=239 time=47.6 ms
+308 bytes from 173.252.133.166: icmp_seq=16 ttl=239 time=47.1 ms
+308 bytes from 173.252.133.166: icmp_seq=17 ttl=239 time=47.8 ms
+308 bytes from 173.252.133.166: icmp_seq=18 ttl=239 time=47.6 ms
+308 bytes from 173.252.133.166: icmp_seq=19 ttl=239 time=47.4 ms
+308 bytes from 173.252.133.166: icmp_seq=20 ttl=239 time=48.4 ms
+
+--- uscis.gov ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19035ms
+rtt min/avg/max/mdev = 46.281/49.557/82.048/7.505 ms
+
+PING amazon.in (54.239.32.8) 300(328) bytes of data.
+308 bytes from 54.239.32.8: icmp_seq=1 ttl=222 time=212 ms
+308 bytes from 54.239.32.8: icmp_seq=2 ttl=222 time=150 ms
+308 bytes from 54.239.32.8: icmp_seq=3 ttl=222 time=187 ms
+308 bytes from 54.239.32.8: icmp_seq=4 ttl=222 time=242 ms
+308 bytes from 54.239.32.8: icmp_seq=5 ttl=222 time=182 ms
+308 bytes from 54.239.32.8: icmp_seq=6 ttl=222 time=219 ms
+308 bytes from 54.239.32.8: icmp_seq=7 ttl=222 time=124 ms
+308 bytes from 54.239.32.8: icmp_seq=8 ttl=222 time=200 ms
+308 bytes from 54.239.32.8: icmp_seq=9 ttl=222 time=138 ms
+308 bytes from 54.239.32.8: icmp_seq=10 ttl=222 time=180 ms
+308 bytes from 54.239.32.8: icmp_seq=11 ttl=222 time=225 ms
+308 bytes from 54.239.32.8: icmp_seq=12 ttl=222 time=167 ms
+308 bytes from 54.239.32.8: icmp_seq=13 ttl=222 time=138 ms
+308 bytes from 54.239.32.8: icmp_seq=14 ttl=222 time=125 ms
+308 bytes from 54.239.32.8: icmp_seq=15 ttl=222 time=188 ms
+308 bytes from 54.239.32.8: icmp_seq=16 ttl=222 time=232 ms
+308 bytes from 54.239.32.8: icmp_seq=17 ttl=222 time=123 ms
+308 bytes from 54.239.32.8: icmp_seq=18 ttl=222 time=214 ms
+308 bytes from 54.239.32.8: icmp_seq=19 ttl=222 time=152 ms
+308 bytes from 54.239.32.8: icmp_seq=20 ttl=222 time=196 ms
+
+--- amazon.in ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19025ms
+rtt min/avg/max/mdev = 123.931/180.248/242.093/37.254 ms
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+PING cs.colorado.edu (128.138.73.7) 300(328) bytes of data.
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=1 ttl=60 time=1.12 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=2 ttl=60 time=1.42 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=3 ttl=60 time=3.14 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=4 ttl=60 time=3.06 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=5 ttl=60 time=2.82 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=6 ttl=60 time=3.29 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=7 ttl=60 time=3.16 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=8 ttl=60 time=3.43 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=9 ttl=60 time=2.55 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=10 ttl=60 time=3.00 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=11 ttl=60 time=3.34 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=12 ttl=60 time=2.00 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=13 ttl=60 time=3.36 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=14 ttl=60 time=1.93 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=15 ttl=60 time=2.92 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=16 ttl=60 time=2.92 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=17 ttl=60 time=3.11 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=18 ttl=60 time=2.85 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=19 ttl=60 time=2.79 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=20 ttl=60 time=3.27 ms
+
+--- cs.colorado.edu ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19030ms
+rtt min/avg/max/mdev = 1.123/2.778/3.437/0.640 ms
+
+PING uscis.gov (173.252.133.166) 300(328) bytes of data.
+308 bytes from 173.252.133.166: icmp_seq=1 ttl=239 time=46.5 ms
+308 bytes from 173.252.133.166: icmp_seq=2 ttl=239 time=47.6 ms
+308 bytes from 173.252.133.166: icmp_seq=3 ttl=239 time=45.7 ms
+308 bytes from 173.252.133.166: icmp_seq=4 ttl=239 time=47.1 ms
+308 bytes from 173.252.133.166: icmp_seq=5 ttl=239 time=47.5 ms
+308 bytes from 173.252.133.166: icmp_seq=6 ttl=239 time=47.3 ms
+308 bytes from 173.252.133.166: icmp_seq=7 ttl=239 time=47.7 ms
+308 bytes from 173.252.133.166: icmp_seq=8 ttl=239 time=47.7 ms
+308 bytes from 173.252.133.166: icmp_seq=9 ttl=239 time=48.3 ms
+308 bytes from 173.252.133.166: icmp_seq=10 ttl=239 time=47.5 ms
+308 bytes from 173.252.133.166: icmp_seq=11 ttl=239 time=47.4 ms
+308 bytes from 173.252.133.166: icmp_seq=12 ttl=239 time=46.2 ms
+308 bytes from 173.252.133.166: icmp_seq=13 ttl=239 time=47.7 ms
+308 bytes from 173.252.133.166: icmp_seq=14 ttl=239 time=46.9 ms
+308 bytes from 173.252.133.166: icmp_seq=15 ttl=239 time=57.6 ms
+308 bytes from 173.252.133.166: icmp_seq=16 ttl=239 time=90.8 ms
+308 bytes from 173.252.133.166: icmp_seq=17 ttl=239 time=47.3 ms
+308 bytes from 173.252.133.166: icmp_seq=18 ttl=239 time=47.5 ms
+308 bytes from 173.252.133.166: icmp_seq=19 ttl=239 time=47.5 ms
+308 bytes from 173.252.133.166: icmp_seq=20 ttl=239 time=49.4 ms
+
+--- uscis.gov ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19034ms
+rtt min/avg/max/mdev = 45.700/50.106/90.804/9.632 ms
+
+PING amazon.in (54.239.32.8) 300(328) bytes of data.
+308 bytes from 54.239.32.8: icmp_seq=1 ttl=222 time=249 ms
+308 bytes from 54.239.32.8: icmp_seq=2 ttl=222 time=171 ms
+308 bytes from 54.239.32.8: icmp_seq=3 ttl=222 time=215 ms
+308 bytes from 54.239.32.8: icmp_seq=4 ttl=222 time=152 ms
+308 bytes from 54.239.32.8: icmp_seq=5 ttl=222 time=125 ms
+308 bytes from 54.239.32.8: icmp_seq=6 ttl=222 time=134 ms
+308 bytes from 54.239.32.8: icmp_seq=7 ttl=222 time=126 ms
+308 bytes from 54.239.32.8: icmp_seq=8 ttl=222 time=220 ms
+308 bytes from 54.239.32.8: icmp_seq=9 ttl=222 time=159 ms
+308 bytes from 54.239.32.8: icmp_seq=10 ttl=222 time=202 ms
+308 bytes from 54.239.32.8: icmp_seq=11 ttl=222 time=140 ms
+308 bytes from 54.239.32.8: icmp_seq=12 ttl=222 time=183 ms
+308 bytes from 54.239.32.8: icmp_seq=13 ttl=222 time=331 ms
+308 bytes from 54.239.32.8: icmp_seq=14 ttl=222 time=164 ms
+308 bytes from 54.239.32.8: icmp_seq=15 ttl=222 time=207 ms
+308 bytes from 54.239.32.8: icmp_seq=16 ttl=222 time=146 ms
+308 bytes from 54.239.32.8: icmp_seq=17 ttl=222 time=188 ms
+308 bytes from 54.239.32.8: icmp_seq=18 ttl=222 time=231 ms
+308 bytes from 54.239.32.8: icmp_seq=19 ttl=222 time=170 ms
+308 bytes from 54.239.32.8: icmp_seq=20 ttl=222 time=211 ms
+
+--- amazon.in ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19030ms
+rtt min/avg/max/mdev = 125.562/186.535/331.256/48.448 ms
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+PING cs.colorado.edu (128.138.73.7) 300(328) bytes of data.
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=1 ttl=60 time=1.32 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=2 ttl=60 time=34.5 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=3 ttl=60 time=5.51 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=4 ttl=60 time=4.13 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=5 ttl=60 time=3.07 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=6 ttl=60 time=1.59 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=7 ttl=60 time=2.83 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=8 ttl=60 time=2.80 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=9 ttl=60 time=3.77 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=10 ttl=60 time=2.73 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=11 ttl=60 time=6.19 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=12 ttl=60 time=2.82 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=13 ttl=60 time=2.87 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=14 ttl=60 time=3.37 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=15 ttl=60 time=3.47 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=16 ttl=60 time=2.69 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=17 ttl=60 time=2.60 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=18 ttl=60 time=2.93 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=19 ttl=60 time=3.05 ms
+308 bytes from www-apps.cs.colorado.edu (128.138.73.7): icmp_seq=20 ttl=60 time=3.70 ms
+
+--- cs.colorado.edu ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19033ms
+rtt min/avg/max/mdev = 1.322/4.803/34.559/6.912 ms
+
+PING uscis.gov (173.252.133.166) 300(328) bytes of data.
+308 bytes from 173.252.133.166: icmp_seq=1 ttl=239 time=46.2 ms
+308 bytes from 173.252.133.166: icmp_seq=2 ttl=239 time=49.0 ms
+308 bytes from 173.252.133.166: icmp_seq=3 ttl=239 time=47.6 ms
+308 bytes from 173.252.133.166: icmp_seq=4 ttl=239 time=49.3 ms
+308 bytes from 173.252.133.166: icmp_seq=5 ttl=239 time=47.8 ms
+308 bytes from 173.252.133.166: icmp_seq=6 ttl=239 time=47.8 ms
+308 bytes from 173.252.133.166: icmp_seq=7 ttl=239 time=48.6 ms
+308 bytes from 173.252.133.166: icmp_seq=8 ttl=239 time=47.1 ms
+308 bytes from 173.252.133.166: icmp_seq=9 ttl=239 time=47.3 ms
+308 bytes from 173.252.133.166: icmp_seq=10 ttl=239 time=47.3 ms
+308 bytes from 173.252.133.166: icmp_seq=11 ttl=239 time=47.0 ms
+308 bytes from 173.252.133.166: icmp_seq=12 ttl=239 time=45.8 ms
+308 bytes from 173.252.133.166: icmp_seq=13 ttl=239 time=47.4 ms
+308 bytes from 173.252.133.166: icmp_seq=14 ttl=239 time=45.6 ms
+308 bytes from 173.252.133.166: icmp_seq=15 ttl=239 time=50.9 ms
+308 bytes from 173.252.133.166: icmp_seq=16 ttl=239 time=48.1 ms
+308 bytes from 173.252.133.166: icmp_seq=17 ttl=239 time=47.0 ms
+308 bytes from 173.252.133.166: icmp_seq=18 ttl=239 time=47.9 ms
+308 bytes from 173.252.133.166: icmp_seq=19 ttl=239 time=47.4 ms
+308 bytes from 173.252.133.166: icmp_seq=20 ttl=239 time=47.5 ms
+
+--- uscis.gov ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19012ms
+rtt min/avg/max/mdev = 45.622/47.679/50.945/1.196 ms
+
+PING amazon.in (178.236.7.18) 300(328) bytes of data.
+308 bytes from 178.236.7.18: icmp_seq=1 ttl=233 time=124 ms
+308 bytes from 178.236.7.18: icmp_seq=2 ttl=233 time=150 ms
+308 bytes from 178.236.7.18: icmp_seq=3 ttl=233 time=196 ms
+308 bytes from 178.236.7.18: icmp_seq=4 ttl=233 time=133 ms
+308 bytes from 178.236.7.18: icmp_seq=5 ttl=233 time=179 ms
+308 bytes from 178.236.7.18: icmp_seq=6 ttl=233 time=219 ms
+308 bytes from 178.236.7.18: icmp_seq=7 ttl=233 time=158 ms
+308 bytes from 178.236.7.18: icmp_seq=8 ttl=233 time=201 ms
+308 bytes from 178.236.7.18: icmp_seq=9 ttl=233 time=140 ms
+308 bytes from 178.236.7.18: icmp_seq=10 ttl=233 time=182 ms
+308 bytes from 178.236.7.18: icmp_seq=11 ttl=233 time=125 ms
+308 bytes from 178.236.7.18: icmp_seq=12 ttl=233 time=164 ms
+308 bytes from 178.236.7.18: icmp_seq=13 ttl=233 time=207 ms
+308 bytes from 178.236.7.18: icmp_seq=14 ttl=233 time=146 ms
+308 bytes from 178.236.7.18: icmp_seq=15 ttl=233 time=192 ms
+308 bytes from 178.236.7.18: icmp_seq=16 ttl=233 time=232 ms
+308 bytes from 178.236.7.18: icmp_seq=17 ttl=233 time=171 ms
+308 bytes from 178.236.7.18: icmp_seq=18 ttl=233 time=213 ms
+308 bytes from 178.236.7.18: icmp_seq=19 ttl=233 time=151 ms
+308 bytes from 178.236.7.18: icmp_seq=20 ttl=233 time=194 ms
+
+--- amazon.in ping statistics ---
+20 packets transmitted, 20 received, 0% packet loss, time 19027ms
+rtt min/avg/max/mdev = 124.601/174.146/232.704/31.587 ms
+
