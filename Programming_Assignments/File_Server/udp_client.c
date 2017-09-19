@@ -1,9 +1,5 @@
 #include "common.h"
 
-#define SERVER_RESPONSE_ENABLED
-
-char global_client_buffer[2][20];
-
 int server_response(int sock_fd, struct sockaddr_in *remote_socket, \
                   void *response, int response_size)
 {
@@ -18,6 +14,7 @@ int server_response(int sock_fd, struct sockaddr_in *remote_socket, \
    
   return nbytes;
 }
+
 
 void send_file_from_client(char *filename,int sock_fd,\
                     struct sockaddr_in *remote)
@@ -83,7 +80,6 @@ void send_file_from_client(char *filename,int sock_fd,\
         /* This is the last packet; change the size that is read */
         packet_size = client_data_packet.file_size%MAX_BUFFER_LENGTH;
       }
-
     }  
   } else {
     printf("Unable to open the file for reading\n");
@@ -155,11 +151,12 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
    * with an ack/nack every time it receives a stream sent by
    * the server.
    */
-  while(packet_count != data_packet->file_stream_size) {
+  while(packet_count != (data_packet->file_stream_size)) {
+    
     /* 1. Get the seq. number of the stream */
     server_response(sock_fd, remote, &(data_packet->seq_number),\
                       sizeof(data_packet->seq_number));
-
+    
     /* 2. Send ACK/NACK */
     data_packet->ack_nack = 1;
     int nbytes = sendto(sock_fd, &(data_packet->ack_nack), sizeof(uint8_t),\
@@ -171,6 +168,7 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
     
     /* 3. Wait for the server to send back the stream of data */
     memset(data_packet->buffer, '\0', MAX_BUFFER_LENGTH);
+    
     server_response(sock_fd, remote, &(data_packet->buffer),\
         sizeof(data_packet->buffer));
 
@@ -183,7 +181,10 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
     fwrite(&(data_packet->buffer), 1, packet_size, fp);
     packet_count++;
   }
-  fclose(fp);
+  
+  if(filename != stdout)
+    fclose(fp);
+  
   return;
 }
 
@@ -191,10 +192,9 @@ infra_return start_command_infra(int *cntr)
 {
   char user_data_buffer[20];
   *cntr = 0;
-
-  printf("Starting the command infra:\n");
   
   /* First get the user data from the command line */
+  printf("starting the command infra:\n");
   if (fgets(user_data_buffer, sizeof(user_data_buffer), stdin)) {
     char *buffer = strtok(user_data_buffer, " \n"); 
     while(buffer != NULL) {
@@ -209,6 +209,10 @@ infra_return start_command_infra(int *cntr)
   if(!strcmp(global_client_buffer[0], &newline)) {
     printf("inputs not correct. Please try again!\n");
     return INCORRECT_INPUT;
+  }
+
+  if(!strcmp(global_client_buffer[0],valid_commands[4])) {
+    return COMMAND_EXIT;
   }
 
   /* Interpret the command and return the corresponding value
@@ -239,24 +243,40 @@ int main(int argc, char *argv[])
   udp_data_packet data_packet;
 
   /* Start the command infra to get a command from the user */
-  while(ret_val != VALID_RETURN) {
+  while(1) 
+  {
+    ret_val = 0;
     ret_val = start_command_infra(&cntr);
-  }
+    
+    /* Send the command and the filename entered by the user to the server */
+    send_client_data(sock_fd, &remote, &cntr);
+    
+    if(ret_val == COMMAND_EXIT)
+      break;
 
-  /* Send the command and the filename entered by the user to the server */
-  send_client_data(sock_fd, &remote, &cntr);
-
-#ifdef SERVER_RESPONSE_ENABLED
-  if(!strcmp(global_client_buffer[0], valid_commands[3])) {
-    receive_data_from_server(sock_fd, &remote, &data_packet, stdout);
-  } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
-    printf("Sending a file from the client to the server to store!\n");
-    send_file_from_client(global_client_buffer[1], sock_fd, &remote);
-  } else {
-    char filename[] = "temp_file_1";
-    receive_data_from_server(sock_fd, &remote, &data_packet, filename);
-  }
+    
+#ifdef RESPONSE_ENABLED
+    if(!strcmp(global_client_buffer[0], valid_commands[3])) {
+      receive_data_from_server(sock_fd, &remote, &data_packet, stdout);
+    } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
+      send_file_from_client(global_client_buffer[1], sock_fd, &remote);
+    } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
+      printf("Terminating the Client program!\n");
+      break;
+    } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
+      printf("Command is: Get!\n");
+      
+      char filename[] = "temp_file_1";
+      receive_data_from_server(sock_fd, &remote, &data_packet, filename);
+    } else if(!strcmp(global_client_buffer[0], valid_commands[5])) {
+      system("clear");
+    } else {
+      continue;
+    }
 #endif
+    
+    memset(global_client_buffer, '\0', sizeof(global_client_buffer));
+  }
   
   close(sock_fd);
 

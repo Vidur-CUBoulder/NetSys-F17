@@ -1,9 +1,5 @@
 #include "common.h"
 
-#define SERVER_RESPONSE_ENABLED
-
-char global_server_buffer[2][20];
-
 int server_response(int sock_fd, struct sockaddr_in remote_socket, \
             void *response, int response_size)
 {
@@ -27,6 +23,7 @@ void send_data_to_client(char *filename, int sock_fd,\
   }
   
   udp_data_packet udp_packet;
+  udp_packet.seq_number = 0;
   memset(&udp_packet.buffer, '\0', sizeof(udp_packet.buffer));
   FILE *fp;
   fp = fopen(filename, "rb");
@@ -86,7 +83,6 @@ void send_data_to_client(char *filename, int sock_fd,\
   } else {
     printf("Unable to open the file\n");
   }
-
   return;
 }
        
@@ -94,7 +90,7 @@ void send_data_to_client(char *filename, int sock_fd,\
 void execute_ls(int sock_fd, struct sockaddr_in *remote)
 {
   /* execute the ls command and store the output in a file */
-  system("ls > ls_outfile"); 
+  system("ls | grep -v \"ls_outfile\" > ls_outfile"); 
 
   send_data_to_client("ls_outfile", sock_fd, remote);
 
@@ -115,7 +111,6 @@ void receive_client_data(int sock_fd, struct sockaddr_in *remote, int *packet_co
   if(nbytes < 0) {
     perror("ERROR:recvfrom()");
   }
-  printf("packet_count: %d\n", *packet_count);
 
   for(int i = 0; i<(*packet_count); i++) { 
     nbytes = recvfrom(sock_fd, &global_server_buffer[i], sizeof(global_server_buffer),\
@@ -151,10 +146,11 @@ void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
   udp_data_packet data_packet;
   data_packet.file_size = 0;
   data_packet.file_stream_size = 0;
+  data_packet.seq_number = 0;
 
   /* a. Get the size of the file that being sent by the client */
   int32_t remote_length = sizeof(remote);
-  int nbytes = recvfrom(sock_fd, &data_packet.file_size, sizeof(uint32_t),\
+  int nbytes = recvfrom(sock_fd, &data_packet.file_size, sizeof(data_packet.file_size),\
       0, (struct sockaddr *)remote, &remote_length);
   if(nbytes < 0) {
     perror("ERROR:recvfrom()");
@@ -164,7 +160,7 @@ void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
 
   /* b. get the number of packets that are going to be sent */
   data_packet.file_stream_size = PACKET_COUNT(data_packet.file_size);
-  nbytes = recvfrom(sock_fd, &data_packet.file_stream_size, sizeof(uint32_t),\
+  nbytes = recvfrom(sock_fd, &data_packet.file_stream_size, sizeof(data_packet.file_stream_size),\
       0, (struct sockaddr *)remote, &remote_length);
   if(nbytes < 0) {
     perror("ERROR:recvfrom()");
@@ -175,7 +171,7 @@ void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
   uint32_t packet_count = 0;
   uint32_t packet_size = MAX_BUFFER_LENGTH; 
   
-  char filename[] = "temp_file.png";
+  char filename[] = "temp_file";
 
   FILE *fp = NULL;
   fp = fopen(filename, "wb");
@@ -186,17 +182,15 @@ void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
    */
   while(packet_count != data_packet.file_stream_size) {
 
-    nbytes = recvfrom(sock_fd, &data_packet.seq_number, sizeof(uint32_t),\
+    nbytes = recvfrom(sock_fd, &data_packet.seq_number, sizeof(data_packet.seq_number),\
         0, (struct sockaddr *)remote, &remote_length);
     if(nbytes < 0) {
       perror("ERROR:recvfrom()");
     }
-  
-    printf("seq_number: %d\n", data_packet.seq_number);
 
     /* 2. Send ACK/NACK */
     data_packet.ack_nack = 1;
-    nbytes = sendto(sock_fd, &(data_packet.ack_nack), sizeof(uint8_t),\
+    nbytes = sendto(sock_fd, &(data_packet.ack_nack), sizeof(data_packet.ack_nack),\
         0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
     if(nbytes < 0) {
       perror("ERROR: sendto()");
@@ -228,56 +222,66 @@ void get_data_from_client(int sock_fd, struct sockaddr_in *remote)
 }
 
 
-void execute_client_commands(int sock_fd, struct sockaddr_in *remote)
+infra_return execute_client_commands(int sock_fd, struct sockaddr_in *remote)
 {
+#if 1
   printf("command: %s\n", global_server_buffer[0]);
   printf("filename: %s\n", global_server_buffer[1]);
+#endif
 
   int command_num = 0;
-  if(validate_input_command(global_server_buffer[0], &command_num)==\
-                                COMMAND_SUCCESS) {
+  int ret_val = 0;
+  if(validate_input_command(global_server_buffer[0], &command_num) == COMMAND_SUCCESS) {
     switch((valid_client_commands)command_num)
     {
-      case PUT:     printf("put\n");
+      case PUT:     
                     //receive the transmitted file from the client.
-                    printf("in the PUT statement!\n");
+                    printf("In PUT!\n");
                     get_data_from_client(sock_fd, remote);
                     break;
 
-      case GET:     printf("get\n");
+      case GET:     
                     //send the requested file to the client
                     /* TODO: Check if the file is present in the currect directory */
                     send_data_to_client(global_server_buffer[1], sock_fd, remote); 
                     break;
 
-      case DELETE:  printf("delete\n");
+      case DELETE:  
                     //delete the file if found
+                    ret_val = remove(global_server_buffer[1]);
+                    if(ret_val) {
+                      /* TODO: need to send this data over to the client */
+                      printf("Could not remove the file\n");
+                    }
                     break;
 
-      case LS:      printf("ls\n");
+      case LS:      
                     //send a list of the files in the current dir.
                     execute_ls(sock_fd, remote);
                     break;
 
-      case EXIT:    printf("exit\n");
+      case EXIT:    
                     //gracefully exit from the program
+                    printf("Terminating the Server program!\n");
+                    return COMMAND_EXIT;
                     break;
 
       default:      //this is just default.
-                    printf("nothing!\n");
+                    return COMMAND_EXIT;
     }
+    return COMMAND_SUCCESS;
   } else {
     printf("invalid command passed!\n");
+    return COMMAND_FAILURE;
   }
   
-  return;
+  return COMMAND_FAILURE;
 }
 
 
 
 int main (int argc, char * argv[] )
 {
-
   int sock_fd = 0;
   struct sockaddr_in server_socket, remote;
 
@@ -300,17 +304,20 @@ int main (int argc, char * argv[] )
 
   /* Wait for the client to send data */
   int packet_count = 0; 
-  receive_client_data(sock_fd, &remote, &packet_count);
-
-  execute_client_commands(sock_fd, &remote);
-
-#ifdef SERVER_RESPONSE_ENABLED
-  /* Send a response back to the client */
-  char msg[] = "oranges"; 
-  server_response(sock_fd, remote, msg, sizeof(msg));
-
-#endif
+  infra_return retval = 0;
   
+  while(1) { 
+
+    receive_client_data(sock_fd, &remote, &packet_count);
+
+    retval = execute_client_commands(sock_fd, &remote);
+
+    if(retval == COMMAND_EXIT) 
+      break;
+
+    retval = 0;
+  }
+
   close(sock_fd);
 
   return 0;

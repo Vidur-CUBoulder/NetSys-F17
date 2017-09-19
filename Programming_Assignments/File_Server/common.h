@@ -16,7 +16,7 @@
 #include<openssl/crypto.h>
 #include<openssl/md5.h>
 
-#define MAX_BUFFER_LENGTH 1000
+#define MAX_BUFFER_LENGTH 100
 
 #define UDP_SOCKETS SOCK_DGRAM
 
@@ -25,12 +25,20 @@
 #define PACKET_COUNT(x) ((x%MAX_BUFFER_LENGTH) == 0) ?\
                       (x/MAX_BUFFER_LENGTH) : ((x/MAX_BUFFER_LENGTH) + 1)
 
+#define RESPONSE_ENABLED
+
+char global_client_buffer[2][20];
+char global_server_buffer[2][20];
+
+
 typedef enum infra_return_e {
   NULL_VALUE = 0,
   INCORRECT_INPUT,
   VALID_RETURN,
   COMMAND_SUCCESS, 
-  COMMAND_FAILURE
+  COMMAND_FAILURE,
+  COMMAND_EXIT,
+  COMMAND_CLEAR_SCREEN
 } infra_return;
 
 typedef enum valid_client_commands_e {
@@ -38,7 +46,8 @@ typedef enum valid_client_commands_e {
   GET, 
   DELETE,
   LS,
-  EXIT
+  EXIT,
+  CLEAR
 } valid_client_commands;
 
 
@@ -47,7 +56,8 @@ char *valid_commands[] = {
   "get",
   "delete",
   "ls",
-  "exit"
+  "exit",
+  "clear"
 };
 
 typedef struct udp_data_packet_t {
