@@ -63,7 +63,7 @@ void send_file_from_client(char *filename,int sock_fd,\
 
       /* Wait for an ack! */
       remote_length = sizeof(remote);
-      int nbytes = recvfrom(sock_fd, &client_data_packet.ack_nack, sizeof(uint8_t),\
+      int nbytes = recvfrom(sock_fd, &client_data_packet.ack_nack, sizeof(client_data_packet.ack_nack),\
           0, (struct sockaddr *)remote, &remote_length);
       if(nbytes < 0) {
         perror("ERROR:recvfrom()");
@@ -126,7 +126,7 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
     printf("Filename missing!\n");
     return;
   }
-  
+ 
   /* a. First get the size of the file that is being sent */
   server_response(sock_fd, remote, &data_packet->file_size,\
                       sizeof(data_packet->file_size)); 
@@ -152,19 +152,32 @@ void receive_data_from_server(int sock_fd, struct sockaddr_in *remote,\
    * the server.
    */
   while(packet_count != (data_packet->file_stream_size)) {
-    
+  
+    printf("\npacket_count: %d\n", packet_count);
+
     /* 1. Get the seq. number of the stream */
     server_response(sock_fd, remote, &(data_packet->seq_number),\
                       sizeof(data_packet->seq_number));
     
+    printf("seq_number: %d\n", data_packet->seq_number);
+    
     /* 2. Send ACK/NACK */
-    data_packet->ack_nack = 1;
-    int nbytes = sendto(sock_fd, &(data_packet->ack_nack), sizeof(uint8_t),\
+    data_packet->ack_nack = (data_packet->seq_number == packet_count) ? 1 : 0;
+    
+    int nbytes = sendto(sock_fd, &(data_packet->ack_nack), sizeof(data_packet->ack_nack),\
         0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
     if(nbytes < 0) {
       perror("ERROR: sendto()");
       exit(1);
     }
+    if(!data_packet->ack_nack) {
+      /* Re-send the packet */
+      printf("Resending the packet!\n");
+      server_response(sock_fd, remote, &(data_packet->buffer),\
+        sizeof(data_packet->buffer));
+      printf("\n%s\n", data_packet->buffer);
+      getchar();
+    } 
     
     /* 3. Wait for the server to send back the stream of data */
     memset(data_packet->buffer, '\0', MAX_BUFFER_LENGTH);
@@ -265,7 +278,6 @@ int main(int argc, char *argv[])
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       printf("Command is: Get!\n");
-      
       char filename[] = "temp_file_1";
       receive_data_from_server(sock_fd, &remote, &data_packet, filename);
     } else if(!strcmp(global_client_buffer[0], valid_commands[5])) {

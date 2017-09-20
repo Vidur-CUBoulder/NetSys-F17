@@ -29,7 +29,8 @@ void send_data_to_client(char *filename, int sock_fd,\
   fp = fopen(filename, "rb");
   int pkt_count = 0;
   unsigned int remote_length = 0;
-  
+  int nbytes;
+
   /* Find the size of the file and send that information to the client */
   fseek(fp, 0L, SEEK_END);
   udp_packet.file_size = ftell(fp);
@@ -57,10 +58,19 @@ void send_data_to_client(char *filename, int sock_fd,\
      
       /* Wait for an ack! */
       remote_length = sizeof(remote);
-      int nbytes = recvfrom(sock_fd, &udp_packet.ack_nack, sizeof(uint8_t),\
-          0, (struct sockaddr *)remote, &remote_length);
-      if(nbytes < 0) {
-        perror("ERROR:recvfrom()");
+      udp_packet.ack_nack = 0; 
+      
+      while(udp_packet.ack_nack != 1) {
+        
+        nbytes = recvfrom(sock_fd, &udp_packet.ack_nack, sizeof(udp_packet.ack_nack),\
+            0, (struct sockaddr *)remote, &remote_length);
+        if(nbytes < 0) {
+          perror("ERROR:recvfrom()");
+        }
+        printf("ack_nack: %d\n", udp_packet.ack_nack);
+        if(!udp_packet.ack_nack) {
+          printf("\nNACK!! --> resending packet\n");
+        }
       }
 
       /* Send the data buffer over to the client and clear the buffer 
@@ -271,7 +281,7 @@ infra_return execute_client_commands(int sock_fd, struct sockaddr_in *remote)
     }
     return COMMAND_SUCCESS;
   } else {
-    printf("invalid command passed!\n");
+    //printf("invalid command passed!\n");
     return COMMAND_FAILURE;
   }
   

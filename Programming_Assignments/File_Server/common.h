@@ -16,7 +16,9 @@
 #include<openssl/crypto.h>
 #include<openssl/md5.h>
 
-#define MAX_BUFFER_LENGTH 100
+#define SOCKET_TIMEOUT
+
+#define MAX_BUFFER_LENGTH 6000
 
 #define UDP_SOCKETS SOCK_DGRAM
 
