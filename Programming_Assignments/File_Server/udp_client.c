@@ -29,6 +29,7 @@ void client_send_CLI_data(int sock_fd, struct sockaddr_in *remote,\
   }
   
   for (int i = 0; i<(*packet_count); i++) {
+    printf("sending word: %s\n", global_client_buffer[i]);
     sendto(sock_fd, &global_client_buffer[i], sizeof(global_client_buffer),\
         0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
     if(nbytes < 0) {
@@ -42,7 +43,7 @@ void client_send_CLI_data(int sock_fd, struct sockaddr_in *remote,\
 
 infra_return start_command_infra(int *cntr)
 {
-  char user_data_buffer[20];
+  char user_data_buffer[20] = {0};
   *cntr = 0;
   
   /* First get the user data from the command line */
@@ -94,7 +95,6 @@ int main(int argc, char *argv[])
   
   infra_return ret_val = 0;
   int cntr = 0;
-  udp_data_packet data_packet;
 
   /* Start the command infra to get a command from the user */
   while(1) 

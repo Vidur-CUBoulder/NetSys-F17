@@ -18,7 +18,7 @@
 
 #define SOCKET_TIMEOUT
 
-#define MAX_BUFFER_LENGTH 5000
+#define MAX_BUFFER_LENGTH 1024
 
 #define UDP_SOCKETS SOCK_DGRAM
 
@@ -28,6 +28,9 @@
                       (x/MAX_BUFFER_LENGTH) : ((x/MAX_BUFFER_LENGTH) + 1)
 
 #define RESPONSE_ENABLED
+
+#define NACK 0
+#define ACK 1
 
 char global_client_buffer[2][20];
 char global_server_buffer[2][20];
@@ -70,7 +73,6 @@ typedef struct __data_buffer_t {
 typedef struct udp_data_packet_t {
   uint32_t file_size;
   uint32_t file_stream_size;
-  //uint32_t seq_number;
   uint8_t ack_nack;
   data_buffer_t data_buffer;
 } udp_data_packet;
@@ -165,6 +167,8 @@ void send_file(char *filename, int sock_fd,\
   int nbytes = 0;
   int setsock_return = 0;
   int32_t remote_length = sizeof(remote);
+  char ack_seq_num[5];
+  memset(ack_seq_num, 0, sizeof(ack_seq_num));
   //uint8_t send_buffer[MAX_BUFFER_LENGTH + 1 + sizeof(data_packet.seq_number)];
 
 
@@ -189,7 +193,11 @@ void send_file(char *filename, int sock_fd,\
    * the struct udp_data_packet.
    */
   data_packet.data_buffer.seq_number = 1;
-  
+ 
+  sock_timeout.tv_sec = 0;
+  sock_timeout.tv_usec = 10000;
+  setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));
+
   if(fp != NULL) {
     while(fread(&(data_packet.data_buffer.buffer), 1, packet_size, fp) > 0) 
     {
@@ -200,40 +208,37 @@ void send_file(char *filename, int sock_fd,\
        * 4. If ACK, continue. Else, wait for the timeout to expire and resend
        */
 
-      /* Reset the ack_nack and start the wait for an ACK */
-      data_packet.ack_nack = 0; 
-      
-      while(data_packet.ack_nack != 1) {
-        /* Now send the buffer to the receiver */
-        sock_timeout.tv_sec = 1; 
-        sock_timeout.tv_usec = 2000; 
+      data_packet.ack_nack = NACK; 
         
-        sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
-            sizeof(data_packet.data_buffer));
-
-        /* Wait for the ACK! 
-         * --> if the ACK is received before the timeout, stop the timer 
-         * --> else just wait here until the ACK is received!
-         */
-
-        /* get the ACK from the receiver! */
-        nbytes = recvfrom_wrapper(sock_fd, *remote, &(data_packet.ack_nack),\
-            sizeof(data_packet.ack_nack));
+      printf("seq_num: %d\n", data_packet.data_buffer.seq_number);
+      sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
+                    sizeof(data_packet.data_buffer));
+    
+      /* Now, wait for the ack */
+      nbytes = recvfrom_wrapper(sock_fd, *remote, &ack_seq_num, sizeof(ack_seq_num));
+         
+      if(nbytes < 0) 
+      {
+        /* Re-send the packet */
+        printf("Time Out ---> Resend the packet!\n");
+        printf("seq_number: %d; packet_count: %d\n",\
+            data_packet.data_buffer.seq_number, packet_count);
+        nbytes = sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
+                    sizeof(data_packet.data_buffer));
         
-        if(nbytes < 0) {
-          /* Time out, resend the packet! */
-          continue;
-        } else { 
-          if(data_packet.ack_nack == 1) {
-            printf("ACK received!; seq_number: %d; packet_count: %d\n", data_packet.data_buffer.seq_number, packet_count);
-          } else {
-            /* Resend the prev. packet */
-            printf("\n\nNACK received!; seq_number: %d; packet_count: %d\n", data_packet.data_buffer.seq_number, packet_count);
-          }
-        }
+        /*sock_timeout.tv_sec = 0;
+        sock_timeout.tv_usec = 0;
+        setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));*/
       
-      }    
-      
+        /* Now, wait for the ack */
+        nbytes = recvfrom_wrapper(sock_fd, *remote, &ack_seq_num, sizeof(ack_seq_num));
+        memcpy(ack_seq_num, &data_packet.data_buffer.seq_number,\
+            sizeof(data_packet.data_buffer.seq_number));
+        printf("seq_num: %d; ack: %d\n", data_packet.data_buffer.seq_number,\
+                         ack_seq_num[4]); 
+        printf("Passing this!\n");
+      }
+
       /* Clean up */
       memset(&data_packet.data_buffer.buffer, '\0',\
           sizeof(data_packet.data_buffer.buffer));
@@ -250,8 +255,17 @@ void send_file(char *filename, int sock_fd,\
     printf("Unable to open the file!\n");
   }
   
+  sock_timeout.tv_sec = 0;
+  sock_timeout.tv_usec = 0;
+  setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));
+  
+  /* flush the buffers */
+  memset(&data_packet, 0, sizeof(data_packet));
+
+
   /* Close the file once you're done */
   fclose(fp);
+  
 
   return;
 }
@@ -266,6 +280,8 @@ void receive_file(int sock_fd, struct sockaddr_in *remote, void *filename)
   int32_t remote_length = sizeof(remote);
   uint32_t packet_count = 1;
   int packet_size = MAX_BUFFER_LENGTH;
+  uint8_t ack_seq_num[5];
+  memset(ack_seq_num, 0, sizeof(ack_seq_num));
 
   /* Get the size of the file from the sender */
   nbytes = recvfrom_wrapper(sock_fd, *remote, &(data_packet.file_size),\
@@ -291,21 +307,32 @@ void receive_file(int sock_fd, struct sockaddr_in *remote, void *filename)
     /* Get the packet first and then strip the seq number from it */
     recvfrom_wrapper(sock_fd, *remote, &data_packet.data_buffer, \
                   sizeof(data_packet.data_buffer));
-
-    printf("Stripped seq number is: %d\n", data_packet.data_buffer.seq_number);
+  
+    printf("Seq. Num: %d\n", data_packet.data_buffer.seq_number);
     
-    /* Send the ACK to the sender! */
-    if(data_packet.data_buffer.seq_number == packet_count) {
-      data_packet.ack_nack = 1;
-      sendto_wrapper(sock_fd, *remote, &(data_packet.ack_nack),\
-          sizeof(data_packet.ack_nack));
-    } else {
-      /* This implies that the ack was lost */
-      data_packet.ack_nack = 0;
-      sendto_wrapper(sock_fd, *remote, &(data_packet.ack_nack),\
-          sizeof(data_packet.ack_nack));
-      continue;
+    /* Send the ack/nack */
+    data_packet.ack_nack = ACK;
+    memcpy(ack_seq_num, &data_packet.data_buffer.seq_number,\
+              sizeof(data_packet.data_buffer.seq_number));
+    ack_seq_num[4] = data_packet.ack_nack;
+    
+    nbytes = sendto_wrapper(sock_fd, *remote, &(ack_seq_num),\
+                    sizeof(ack_seq_num));
+    
+    if(data_packet.data_buffer.seq_number == (packet_count - 1)) {
+        /* this implies the prev. packet */
+        printf("Moving Back!======================================\n");
+        
+        // because you don't want to write to the file again!!
+        continue;
     }
+    
+
+    /* If the ack from the receiver is not received by the sender:-
+     * 1. wait for the sender to resend the packet.
+     * 2. check its sequence number 
+     */
+
 
     if(data_packet.data_buffer.seq_number == (data_packet.file_stream_size))
     {

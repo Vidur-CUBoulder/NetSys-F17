@@ -31,7 +31,7 @@ void execute_ls(int sock_fd, struct sockaddr_in *remote)
 void server_receive_CLI_data(int sock_fd, struct sockaddr_in *remote, int *packet_count)
 {
   /* Create a buffer to store the incoming data from the client in */
- int nbytes = 0;
+  int nbytes = 0;
   unsigned int remote_length = sizeof(remote);
   
   /* call the recvfrom call and block on data from the client */
@@ -148,8 +148,6 @@ int main (int argc, char * argv[] )
  
   sock_fd = populate_socket_addr(&server_socket, AF_INET, htons(atoi(argv[1])),\
                           INADDR_ANY);
-
-  setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));
   
   /* Bind the created socket to the provided address and port number */
   int bind_ret = bind(sock_fd, (struct sockaddr *)&server_socket,\
@@ -176,7 +174,6 @@ int main (int argc, char * argv[] )
     if(retval == COMMAND_EXIT) 
       break;
 
-    retval = 0;
   }
 
   close(sock_fd);
