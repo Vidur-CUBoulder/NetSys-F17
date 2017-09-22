@@ -21,21 +21,25 @@ void client_send_CLI_data(int sock_fd, struct sockaddr_in *remote,\
   /* Send the data to the server */
   int nbytes = 0;
   printf("Sending data: packet_count: %d\n", *packet_count);
-  sendto(sock_fd, packet_count, sizeof(int),\
+  /*sendto(sock_fd, packet_count, sizeof(int),\
       0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
   if(nbytes < 0) {
     perror("ERROR: sendto()");
     exit(1);
-  }
+  }*/
+  sendto_wrapper(sock_fd, *remote, packet_count, sizeof(int));
+
   
   for (int i = 0; i<(*packet_count); i++) {
     printf("sending word: %s\n", global_client_buffer[i]);
-    sendto(sock_fd, &global_client_buffer[i], sizeof(global_client_buffer),\
+    /*sendto(sock_fd, &global_client_buffer[i], sizeof(global_client_buffer),\
         0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
     if(nbytes < 0) {
       perror("ERROR: sendto()");
       exit(1);
-    }
+    }*/
+    sendto_wrapper(sock_fd, *remote, &global_client_buffer[i],\
+                      sizeof(global_client_buffer[i]));
   }
 
   return;
@@ -122,7 +126,9 @@ int main(int argc, char *argv[])
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       printf("In GET\n");
-      receive_file(sock_fd, &remote, "silly_file");
+      printf("global_client_buffer[0]: %s\n", global_client_buffer[0]);
+      printf("global_client_buffer[1]: %s\n", global_client_buffer[1]);
+      receive_file(sock_fd, &remote, global_client_buffer[1]);
     } else if(!strcmp(global_client_buffer[0], valid_commands[5])) {
       system("clear");
     } else {

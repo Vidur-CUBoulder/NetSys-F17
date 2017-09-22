@@ -90,7 +90,7 @@ infra_return execute_client_commands(int sock_fd, struct sockaddr_in *remote)
                     //receive the transmitted file from the client.
                     printf("In PUT!\n");
                     //get_data_from_client(sock_fd, remote);
-                    receive_file(sock_fd, remote, "silly_file");
+                    receive_file(sock_fd, remote, global_server_buffer[1]);
                     break;
 
       case GET:     

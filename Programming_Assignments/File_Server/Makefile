@@ -1,6 +1,6 @@
 all:
-	gcc udp_client.c -lssl -lcrypto -o client
-	gcc udp_server.c -lssl -lcrypto -o server
+	gcc udp_client.c -g -lssl -lcrypto -o client
+	gcc udp_server.c -g -lssl -lcrypto -o server
 
 tags:
 	ctags-exuberant -R ./ ~/GitHub/glibc ~/GitHub/openssl .

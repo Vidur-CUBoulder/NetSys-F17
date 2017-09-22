@@ -128,7 +128,7 @@ int client_response(int sock_fd, struct sockaddr_in remote_socket, \
                 (struct sockaddr *)&remote_socket,\
                 &remote_length);
   if(nbytes < 0) {
-    perror("server:SENDTO");
+    perror("server:RECVFROM");
     return nbytes;
   }
 
