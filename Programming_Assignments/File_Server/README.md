@@ -81,8 +81,7 @@ This will clean the current directory of all executables.
 
 ```
 
-The above are snippets from the serder and reciver functions.
-* The 2 cases that are handled for reliablity are:
+The 2 cases that are handled for reliablity are:
 1. Sender packet is dropped and never reaches the receiver.
 2. ACK from the receiver is lost and never reaches the sender. 
 
