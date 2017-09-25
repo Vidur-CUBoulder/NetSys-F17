@@ -194,8 +194,8 @@ void send_file(char *filename, int sock_fd,\
    */
   data_packet.data_buffer.seq_number = 1;
  
-  sock_timeout.tv_sec = 0;
-  sock_timeout.tv_usec = 10000;
+  sock_timeout.tv_sec = 1;
+  sock_timeout.tv_usec = 0;
   setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));
 
   if(fp != NULL) {
