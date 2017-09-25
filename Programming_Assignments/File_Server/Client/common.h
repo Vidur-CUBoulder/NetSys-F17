@@ -169,7 +169,6 @@ void send_file(char *filename, int sock_fd,\
   int32_t remote_length = sizeof(remote);
   char ack_seq_num[5];
   memset(ack_seq_num, 0, sizeof(ack_seq_num));
-  //uint8_t send_buffer[MAX_BUFFER_LENGTH + 1 + sizeof(data_packet.seq_number)];
 
 
   /* Find the size of the file and send that information to the server */
@@ -210,7 +209,6 @@ void send_file(char *filename, int sock_fd,\
 
       data_packet.ack_nack = NACK; 
         
-      printf("seq_num: %d\n", data_packet.data_buffer.seq_number);
       sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
                     sizeof(data_packet.data_buffer));
     
@@ -220,23 +218,22 @@ void send_file(char *filename, int sock_fd,\
       if(nbytes < 0) 
       {
         /* Re-send the packet */
+#ifdef DEBUG
         printf("Time Out ---> Resend the packet!\n");
         printf("seq_number: %d; packet_count: %d\n",\
             data_packet.data_buffer.seq_number, packet_count);
+#endif
         nbytes = sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
                     sizeof(data_packet.data_buffer));
         
-        /*sock_timeout.tv_sec = 0;
-        sock_timeout.tv_usec = 0;
-        setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&sock_timeout, sizeof(sock_timeout));*/
-      
         /* Now, wait for the ack */
         nbytes = recvfrom_wrapper(sock_fd, *remote, &ack_seq_num, sizeof(ack_seq_num));
         memcpy(ack_seq_num, &data_packet.data_buffer.seq_number,\
             sizeof(data_packet.data_buffer.seq_number));
+#ifdef DEBUG
         printf("seq_num: %d; ack: %d\n", data_packet.data_buffer.seq_number,\
                          ack_seq_num[4]); 
-        printf("Passing this!\n");
+#endif
       }
 
       /* Clean up */
@@ -265,7 +262,6 @@ void send_file(char *filename, int sock_fd,\
 
   /* Close the file once you're done */
   fclose(fp);
-  
 
   return;
 }
@@ -301,15 +297,10 @@ void receive_file(int sock_fd, struct sockaddr_in *remote, void *filename)
   while(packet_count != (data_packet.file_stream_size+1))
   {
     
-    printf("\n\nstream_size: %d; packet_count: %d\n",\
-        data_packet.file_stream_size, packet_count);
-
     /* Get the packet first and then strip the seq number from it */
     recvfrom_wrapper(sock_fd, *remote, &data_packet.data_buffer, \
                   sizeof(data_packet.data_buffer));
   
-    printf("Seq. Num: %d\n", data_packet.data_buffer.seq_number);
-    
     /* Send the ack/nack */
     data_packet.ack_nack = ACK;
     memcpy(ack_seq_num, &data_packet.data_buffer.seq_number,\
@@ -333,12 +324,14 @@ void receive_file(int sock_fd, struct sockaddr_in *remote, void *filename)
      * 2. check its sequence number 
      */
 
-
+    /* handle the last data packet properly */
     if(data_packet.data_buffer.seq_number == (data_packet.file_stream_size))
     {
       /* This is the last packet; change the size that is written */
       packet_size = (data_packet.file_size)%MAX_BUFFER_LENGTH;
+#ifdef DEBUG
       printf("last packet_size: %d\n", packet_size);
+#endif
     }
     
     /* Write the data into the file */

@@ -1,13 +1,9 @@
-all:
-	gcc udp_client.c -g -lssl -lcrypto -o client
+server:
 	gcc udp_server.c -g -lssl -lcrypto -o server
 
 tags:
 	ctags-exuberant -R ./ ~/GitHub/glibc ~/GitHub/openssl .
 
 clean:
-	rm server client
-
-clean-all:
-	rm server client tags foo1 foo2 foo3
+	rm server
 

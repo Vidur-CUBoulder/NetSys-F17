@@ -20,26 +20,12 @@ void client_send_CLI_data(int sock_fd, struct sockaddr_in *remote,\
 {
   /* Send the data to the server */
   int nbytes = 0;
-  printf("Sending data: packet_count: %d\n", *packet_count);
-  /*sendto(sock_fd, packet_count, sizeof(int),\
-      0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
-  if(nbytes < 0) {
-    perror("ERROR: sendto()");
-    exit(1);
-  }*/
   sendto_wrapper(sock_fd, *remote, packet_count, sizeof(int));
 
   
   for (int i = 0; i<(*packet_count); i++) {
-    printf("sending word: %s\n", global_client_buffer[i]);
-    /*sendto(sock_fd, &global_client_buffer[i], sizeof(global_client_buffer),\
-        0, (struct sockaddr *)remote, (socklen_t)sizeof(struct sockaddr_in));
-    if(nbytes < 0) {
-      perror("ERROR: sendto()");
-      exit(1);
-    }*/
     sendto_wrapper(sock_fd, *remote, &global_client_buffer[i],\
-                      sizeof(global_client_buffer[i]));
+        sizeof(global_client_buffer[i]));
   }
 
   return;
@@ -51,7 +37,7 @@ infra_return start_command_infra(int *cntr)
   *cntr = 0;
   
   /* First get the user data from the command line */
-  printf("starting the command infra:\n");
+  printf("> ");
   if (fgets(user_data_buffer, sizeof(user_data_buffer), stdin)) {
     char *buffer = strtok(user_data_buffer, " \n"); 
     while(buffer != NULL) {
@@ -71,10 +57,6 @@ infra_return start_command_infra(int *cntr)
   if(!strcmp(global_client_buffer[0],valid_commands[4])) {
     return COMMAND_EXIT;
   }
-
-  /* Interpret the command and return the corresponding value
-   * the required function.
-   */
 
   return VALID_RETURN;
 }
@@ -116,19 +98,16 @@ int main(int argc, char *argv[])
     
 #ifdef RESPONSE_ENABLED
     if(!strcmp(global_client_buffer[0], valid_commands[3])) {
-      printf("In LS\n");
       receive_file(sock_fd, &remote, stdout);
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
-      printf("In PUT!\n");
       send_file(global_client_buffer[1], sock_fd, &remote);
+      printf("%s sent!\n", global_client_buffer[1]);
     } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
       printf("Terminating the Client program!\n");
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
-      printf("In GET\n");
-      printf("global_client_buffer[0]: %s\n", global_client_buffer[0]);
-      printf("global_client_buffer[1]: %s\n", global_client_buffer[1]);
       receive_file(sock_fd, &remote, global_client_buffer[1]);
+      printf("%s received!\n", global_client_buffer[1]);
     } else if(!strcmp(global_client_buffer[0], valid_commands[5])) {
       system("clear");
     } else {
