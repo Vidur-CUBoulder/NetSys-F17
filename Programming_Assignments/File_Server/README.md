@@ -1,8 +1,8 @@
-#UDP File Server
+# UDP File Server
 
 This is a very basic implementation of a UDP bases File Server. There is an attempt to make the transfer as reliable as possible. 
 
-##Compiling The Programs
+## Compiling The Programs
 
 Compiling the Server Program:-
 * Go to **Server/** and run:
@@ -24,18 +24,18 @@ make clean
 ```
 This will clean the current directory of all executables.
 
-##Client Program:
+## Client Program:
 
 * The Client program starts off by running the command line and asking the user for his/her choice of commands. The user can type *help* to get a list of all the valid commands.
 * On receiving a valid command from the user, the client will relay that to the server that then accordingly executes it. It will return or print an error on failure. 
 
-##Server Program:
+## Server Program:
 
 * The Server waits to get a command from the client and authenticates its validity before processing the request.
 
-##Reliability:
+## Reliability:
 
-###Sender:
+### Sender:
 
 ```c
       sendto_wrapper(sock_fd, *remote, &(data_packet.data_buffer),\
@@ -58,7 +58,7 @@ This will clean the current directory of all executables.
 
 ```
 
-###Client:
+### Receiver:
 
 ```c
 
@@ -75,12 +75,18 @@ This will clean the current directory of all executables.
                     sizeof(ack_seq_num));
     
     if(data_packet.data_buffer.seq_number == (packet_count - 1)) {
-        /* this implies the prev. packet */
-        printf("Moving Back!======================================\n");
-        
-        // because you don't want to write to the file again!!
+        /* this implies the prev. packet; reverse and don't write to the file*/
         continue;
     }
 
 ```
 
+The above are snippets from the serder and reciver functions.
+* The 2 cases that are handled for reliablity are:
+1. Sender packet is dropped and never reaches the receiver.
+2. ACK from the receiver is lost and never reaches the sender. 
+
+In both the above cases, the sender will resend the packet and wait for the receiver to respond with a valid ACK. The ACK includes the seqence number against which the sender check for the validity of the ACK.
+
+There are certain cases in which this implementation fails. An example of that is as follows:-  
+_If 2 consequtive ACKs are dropped and both recvfrom functions timeout. This would mean that the packet would be completly dropped from the receiver end and effectively corrupt the file. Multiple cascading failures that occur one after another will casue issues with the current implemenation as that isn't accounted for._
