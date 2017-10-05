@@ -13,7 +13,7 @@
 
 #define TCP_SOCKETS SOCK_STREAM
 
-//#define DEBUG_CONNECTIONS
+#define DEBUG_CONNECTIONS
 
 /* Let's create a list/array of the keywords that we are searching for */
 #if 0

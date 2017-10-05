@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
   char response_data[1024] = "Hello There!! WebBrowser";
   strcat(http_header, response_data);
 #endif
+  char client_response[2048];
 
   /* Now, create the TCP connection to the client(browser) */
   int server_sock = 0;
@@ -92,6 +93,10 @@ int main(int argc, char *argv[])
     
     /* Send data to the client */
     send(client_sock, http_header, sizeof(http_header), 0); 
+
+    /* Receive some data from the client */
+    recv(client_sock, client_response, sizeof(client_response), 0);
+    printf("%s\n", client_response);
 
     /* Close the client socket connection once you are done */
     close(client_sock);
