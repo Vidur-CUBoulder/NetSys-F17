@@ -67,14 +67,19 @@ int main(int argc, char *argv[])
    * and store its contents in data structures. All of these will
    * be used later.
    */
-  config_data ws_data; 
+  config_data ws_data;
   WS_Parse_Config_File(&ws_data); 
  
+  /* Create the header string to send to the client */
+  char http_header_string[2048];
+  webserver_http_header http_header;
+ 
 #ifdef DEBUG_CONNECTIONS
-  char http_header[2048] = "HTTP/1.1 200 OK\n\n";
-  char response_data[1024] = "Hello There!! WebBrowser";
-  strcat(http_header, response_data);
+  char response_data[1024] = "Hello There!! WebBrowser.This is Pathetic!!Adding more data!!";
 #endif
+  Create_Header(http_header_string, &http_header, HTTP_VERSION_1_1, 200, strlen(response_data), "text/plain");
+  strncat(http_header_string, response_data, strlen(response_data));
+  
   char client_response[2048];
 
   /* Now, create the TCP connection to the client(browser) */
@@ -92,7 +97,7 @@ int main(int argc, char *argv[])
     client_sock = accept(server_sock, NULL, NULL);
     
     /* Send data to the client */
-    send(client_sock, http_header, sizeof(http_header), 0); 
+    send(client_sock, http_header_string, sizeof(http_header_string), 0); 
 
     /* Receive some data from the client */
     recv(client_sock, client_response, sizeof(client_response), 0);
@@ -101,7 +106,6 @@ int main(int argc, char *argv[])
     /* Close the client socket connection once you are done */
     close(client_sock);
   }
-  
   return 0;
 }
 
