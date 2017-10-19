@@ -15,80 +15,12 @@
 
 #define DEBUG_CONNECTIONS
 
-/* Let's create a list/array of the keywords that we are searching for */
-#if 0
-char *ws_conf_keywords[] = {   "Listen",\
-                               "DocumentRoot",\
-                               "DirectoryIndex",\
-                               "."
-                            };
-#endif
-
-enum http_version_numbers {
-  HTTP_VERSION_1_0 = 0, 
-  HTTP_VERSION_1_1 = 1
-};
-
-char *HTTP_Versions[] = {"1.0", "1.1"};
-
-
 typedef struct ws_config_data {
   size_t port;
   char directory_root[50];
   char default_html[20];
   char file_index[20][30];
 } config_data;
-
-typedef struct http_header_struct {
-  char http_version[3]; 
-  
-  uint32_t status_code;
-  
-  union __reply_code {
-    char reply_ok[3];
-    char reply_doc_follows[18];
-  } u_reply_code;
-  
-  size_t file_content_length;
-  char file_content_type[10];
-} webserver_http_header;
-
-void Create_Header(char *header_string, webserver_http_header *header, int version_num,\
-                                    uint32_t status, size_t content_length, char *content_type)
-{
-  char status_code_string[10];
-  char content_length_string[10];
-  /* initialize the HTTP header witht the default strings and values */
-  if(version_num) {
-    strcpy(header->http_version, HTTP_Versions[1]);
-  } else {
-    strcpy(header->http_version, HTTP_Versions[0]);
-  }
-
-  /* Store the code and convert to string */
-  header->status_code = status;
-  sprintf(status_code_string, "%d", header->status_code);
-
-  strcpy(header->u_reply_code.reply_ok, "OK");
-  strcpy(header->u_reply_code.reply_doc_follows, "Document Follows");
-
-  /* Store the content-length string and content-type string and convert to string type */
-  header->file_content_length = content_length;
-  snprintf(content_length_string, sizeof(content_length_string), "%lu",\
-                    header->file_content_length);
-  strcpy(header->file_content_type, content_type);
-
-  /* Create the string and pass it back to the calling function */
-  snprintf(header_string, 300, "%s%s %s %s\nContent-Length: %s\nContent-Type: %s\n\n",\
-          "HTTP/", header->http_version, status_code_string,\
-          header->u_reply_code.reply_ok, content_length_string,\
-                    header->file_content_type);
-  
-  printf("%s", header_string);
-
-  return;
-}
-
 
 void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr,\
                                 int server_addr_len, int tcp_port)
@@ -105,16 +37,82 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   server_addr->sin_addr.s_addr = INADDR_ANY;
 
   /* Bind the server to the client */
-  bind(*server_sock, (struct sockaddr *)server_addr, server_addr_len);
+  int ret_val = bind(*server_sock, (struct sockaddr *)server_addr, server_addr_len);
+  if(ret_val < 0) {
+    perror("ERROR:bind()\n");
+    return;
+  }
 
   /* Start listening for the connection on the socket 
    * Currently, limit the backlog connections to 5. This value will be 
    * maxed out depending on the value that is in /proc/sys/ipv4/tcp_max_syn_backlog
   */
-  listen(*server_sock, 5);
-
+  ret_val = listen(*server_sock, 5);
+  if(ret_val < 0) {
+    perror("ERROR:listen()\n");
+    return;
+  }
   return;
 }
 
+void WS_Parse_Config_File(config_data *ws_data)
+{
+  FILE *fp = NULL;
+  ssize_t read_line = 0;
+  char *line = (char *)malloc(50);
+  int cntr_words = 0;
+  char *eptr;
+
+  fp = fopen("./Materials/ws.conf", "r");
+  if(fp == NULL) {
+    /* Unable to open the file */
+    exit(EXIT_FAILURE);
+  }
+  
+  while( (read_line = getline(&line, &read_line, fp)) != -1) 
+  {
+    /* Ignore statements starting with '#' */
+    if(line[0] == '#')
+      continue;
+   
+    char *buffer = strtok(line, " \n"); 
+    while(buffer != NULL) 
+    {
+      switch(cntr_words)
+      {
+        case 1: /* Store the Port number */
+                ws_data->port = strtol(buffer, &eptr, 10);
+                //printf("cntr_words: %d; port: %lu\n", cntr_words, ws_data->port);
+                break;
+
+        case 3: /* Store the directory root */
+                strcpy(ws_data->directory_root,buffer); 
+                //printf("%s\n", ws_data->directory_root);
+                break;
+
+        case 5: /* Store the default index file name */
+                strcpy(ws_data->default_html, buffer);
+                //printf("%s\n", ws_data->default_html);
+                break;
+
+        default:
+                break;
+      }
+     
+      if(cntr_words >= 6) {
+        strcpy(ws_data->file_index[cntr_words-6], buffer);
+        //printf("%s\n", ws_data->file_index[cntr_words-6]);
+      }
+      
+      buffer = strtok(NULL, " \n");
+      cntr_words++;
+    }
+  }
+  
+  fclose(fp);
+  free(line);
+
+  return;
+}
 
 
