@@ -22,6 +22,9 @@ typedef struct ws_config_data {
   char file_index[20][30];
 } config_data;
 
+/* Global declaration of the variable */
+config_data ws_data;
+
 void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr,\
                                 int server_addr_len, int tcp_port)
 {
@@ -40,7 +43,8 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   int ret_val = bind(*server_sock, (struct sockaddr *)server_addr, server_addr_len);
   if(ret_val < 0) {
     perror("ERROR:bind()\n");
-    return;
+    close(*server_sock); 
+    exit(1);
   }
 
   /* Start listening for the connection on the socket 
@@ -50,7 +54,7 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   ret_val = listen(*server_sock, 5);
   if(ret_val < 0) {
     perror("ERROR:listen()\n");
-    return;
+    exit(1);
   }
   return;
 }
