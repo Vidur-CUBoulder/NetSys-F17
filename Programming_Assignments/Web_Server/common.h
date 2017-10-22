@@ -10,10 +10,15 @@
 #include<netdb.h>
 #include<unistd.h>
 #include<inttypes.h>
+#include<sys/wait.h>
 
 #define TCP_SOCKETS SOCK_STREAM
 
 #define DEBUG_CONNECTIONS
+
+char *respond_404_error = "<html><body>404 NOT Found Reason URL does not exist</body></html>";
+char *respond_400_error = "<html><body>400 Bad Request Reason: Invalid Method</body></html>";
+char *respond_501_error = "<html><body>501 Not Implemented</body></html>";
 
 typedef struct ws_config_data {
   size_t port;
@@ -24,6 +29,15 @@ typedef struct ws_config_data {
 
 /* Global declaration of the variable */
 config_data ws_data;
+
+typedef enum __debug_e {
+  FILE_NOT_FOUND = 0,
+  NULL_VALUE_RETURNED,
+  SUCCESS,
+  SUCCESS_RET_STRING,
+  BAD_HTTP_REQUEST,
+  METHOD_NOT_IMPLEMENTED
+} debug_e;
 
 void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr,\
                                 int server_addr_len, int tcp_port)
