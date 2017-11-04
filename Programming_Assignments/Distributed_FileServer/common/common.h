@@ -11,8 +11,14 @@
 #include<unistd.h>
 #include<inttypes.h>
 #include<sys/wait.h>
+#include<openssl/crypto.h>
+#include<openssl/md5.h>
+#include<errno.h>
+#include<limits.h>
 
 #define TCP_SOCKETS SOCK_STREAM
+
+#define MAX_DFS_SERVERS 4
 
 typedef struct __client_IP_and_Port_t {
   char IP_Addr[10][10];
@@ -30,6 +36,130 @@ typedef struct __server_config_data_t {
   char username[5][15];
   char password[5][15];
 } server_config_data_t;
+
+
+
+void Chunk_File(void *filename, uint8_t chunk_option)
+{
+  FILE *fp = fopen(filename, "rb");
+  if(fp == NULL) {
+    printf("file %s can't be opened!\n", (char *)filename);
+    return;
+  }
+  
+  /* 1. Get the size of the file first and alloc an array accordingly */
+  uint32_t file_size = 0;
+  uint32_t last_packet_size = 0;
+  fseek(fp, 0L, SEEK_END);
+  file_size = ftell(fp);
+  rewind(fp);
+
+  printf("File Size: %d div/4: %d\n", file_size, file_size/4);
+  /* If the file size is not a multiple of 4, stuff the remaining 
+   * bytes into the last file chunk
+   */
+  uint32_t packet_size = (file_size/4);
+  if(file_size/4 != 0) {
+    last_packet_size = packet_size + (file_size % 4);
+  } else {
+    last_packet_size = packet_size;
+  }
+  printf("PacketSize: %d; LastPacket: %d\n", packet_size, last_packet_size);
+
+  int i = 0;
+  int cnt = 0;
+  char fp_read_char = '\0';
+
+  uint8_t file_counter = 1;
+  FILE *output_file = NULL;
+  char fileoutputname[15];
+  memset(fileoutputname, '\0', sizeof(fileoutputname));
+
+  sprintf(fileoutputname, "chunk_%d", file_counter);
+  output_file = fopen(fileoutputname, "w");
+
+  while((cnt = fgetc(fp)) != EOF) {
+    fp_read_char = (char)cnt;  
+    fputc(fp_read_char, output_file);
+    i++;
+    if(i == packet_size && file_counter < 4) {
+      printf("Here!, file_counter: %d\n", file_counter);
+      /* A file has been written to completely */
+      //fputc(EOF, output_file);
+      fclose(output_file);
+      file_counter++; i = 0;
+      if(file_counter == 4) {
+        printf("last packet chunk!; file_counter: %d\n", file_counter);
+      }
+
+      sprintf(fileoutputname, "chunk_%d", file_counter);
+      output_file = fopen(fileoutputname, "w");
+      //break;
+      continue;
+    } 
+  }
+
+  fclose(fp);
+  return;
+}
+
+
+
+void create_md5_hash(char *digest_buffer, char *buffer, int buffer_size)
+{
+  char digest[16];
+  MD5_CTX md5_struct;
+
+  MD5_Init(&md5_struct);
+  MD5_Update(&md5_struct, buffer, buffer_size);
+  MD5_Final(digest, &md5_struct);
+
+  return;
+}
+
+uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
+{
+  FILE *fp = fopen(filename, "rb");
+  if(fp == NULL) {
+    printf("file %s can't be opened!\n", (char *)filename);
+    return 0;
+  }
+  
+  MD5_CTX md5context;
+  int bytes = 0;
+  unsigned char data[1024];
+  memset(data, '\0', sizeof(data));
+  
+  unsigned int digest_buffer[MD5_DIGEST_LENGTH];
+  memset(&digest_buffer, 0, sizeof(digest_buffer));
+
+  MD5_Init(&md5context);
+  while((bytes = fread(data, 1, 1024, fp)) != 0)
+    MD5_Update(&md5context, data, bytes);
+
+  MD5_Final(ret_digest, &md5context);
+ 
+  char temp_store[5];
+  memset(temp_store, '\0', sizeof(temp_store));
+  uint32_t hash_hex_value = 0;
+  uint8_t temp = 0;
+
+  for(int i = 0; i<MD5_DIGEST_LENGTH; i++) {
+    
+    sprintf(temp_store, "%x", ret_digest[i]);
+    temp = strtol(temp_store, NULL, 16);
+    
+    hash_hex_value = hash_hex_value | (temp << ((MD5_DIGEST_LENGTH/2) * (3-i)));
+    printf("\n");
+    if((3 - i) == 0)
+      break;
+  }
+
+  fclose(fp);
+
+  return (hash_hex_value%4);
+}
+
 
 
 void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
