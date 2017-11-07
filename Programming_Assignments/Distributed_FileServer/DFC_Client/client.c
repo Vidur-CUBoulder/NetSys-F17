@@ -22,37 +22,71 @@ int main(int argc, char *argv[])
 
   struct sockaddr_in server_addr[4];
   memset(&server_addr, 0, sizeof(server_addr));
+    
+  char buffer[MAX_DFS_SERVERS][50];
+  memset(buffer, '\0', sizeof(buffer));
 
   for(int i = 0; i<MAX_DFS_SERVERS; i++) {
     Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
-                                    &server_addr[i], sizeof(server_addr[i])); 
+        &server_addr[i], sizeof(server_addr[i])); 
 
 #ifdef TEST_SERVER_CONNECTIONS
     /* Client receive test */ 
-    char buffer[MAX_DFS_SERVERS][48];
+    char buffer[MAX_DFS_SERVERS][50];
     memset(buffer, '\0', sizeof(buffer));
     recv(client_socket[i], buffer[i], 48, 0);
     printf("buffer: %s\n", buffer[i]);
-#endif
 
     /* Client send test */
-    char *buffer = "Hello World!";
-    int send_ret = send(client_socket[i], buffer, strlen(buffer), 0);
+    int send_ret = send(client_socket[i], client_data.username,\
+        strlen(client_data.username), 0);
+    if(send_ret < 0) {
+      perror("SEND");
+      exit(0);
+    }
+#endif
+  
+    /* Combine the client data and password in one string and then send that */
+    strncat(buffer[i], client_data.username, strlen(client_data.username));
+    strncat(buffer[i], " ", strlen(" "));
+    strncat(buffer[i], client_data.password, strlen(client_data.password)); 
+    //printf("%s\n", buffer[i]);
+    
+    int send_ret = send(client_socket[i], buffer[i],\
+        strlen(buffer[i]), 0);
     if(send_ret < 0) {
       perror("SEND");
       exit(0);
     }
   }
+  return 0;
 
-  /* Get the hash of the file */
-  unsigned char digest_buffer[MD5_DIGEST_LENGTH];
-  memset(digest_buffer, '\0', sizeof(digest_buffer));
+
+  int cntr = 0;
+  while(1) {
+    
+    /* Start a command line interface */
+    start_command_infra(&cntr);
+    
+    if(!strcmp(global_client_buffer[0], valid_commands[3])) {
+      /* Exit from the program, gracefully please! */
+      break;
+    } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
+      /* Put the file into the DFS under the 'username' dir. */
+      Execute_Put_File(global_client_buffer[1]);
+    } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
+      /* Get the file from the DFS servers */
+    } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
+      /* List the files in the DFS and check if its recoverable */
+    } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
+      /* Clear the CLI */
+      system("clear");
+    } else {
+      printf("Please enter a valid command\n");
+      break;
+    }
+  }
   
-  uint8_t hash_mod_val = Generate_MD5_Hash("text1.txt", digest_buffer); 
-
-  Chunk_File("text1.txt", hash_mod_val);
-
-
   return 0;
 }
 

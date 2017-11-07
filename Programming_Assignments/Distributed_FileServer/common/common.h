@@ -20,6 +20,18 @@
 
 #define MAX_DFS_SERVERS 4
 
+typedef enum infra_return_e {
+  NULL_VALUE = 0,
+  INCORRECT_INPUT,
+  VALID_RETURN,
+  COMMAND_SUCCESS, 
+  COMMAND_FAILURE,
+  COMMAND_EXIT,
+  AUTH_FAILURE,
+  AUTH_SUCCESS,
+  COMMAND_CLEAR_SCREEN
+} infra_return;
+
 typedef struct __client_IP_and_Port_t {
   char IP_Addr[10][10];
   uint16_t port_num[10];
@@ -28,14 +40,228 @@ typedef struct __client_IP_and_Port_t {
 typedef struct __client_config_data_t {
   char DFS_Server_Names[10][10];
   client_ip_port_t client_ports;
-  char username[10];
-  char password[10];
+  char username[15];
+  char password[15];
 } client_config_data_t;
 
 typedef struct __server_config_data_t {
   char username[5][15];
   char password[5][15];
 } server_config_data_t;
+
+char chunk_filename_list[4][20];
+
+char global_client_buffer[2][20];
+
+char *valid_commands[] = {  
+  "put", 
+  "get",
+  "list",
+  "exit",
+  "clear"
+};
+
+infra_return Validate_Login_Credentials(char *input_buffer,\
+                            server_config_data_t *config_data)
+{
+  if(input_buffer == NULL) {
+    printf("<<%s>>: Null Value passed!\n", __func__);
+    return NULL_VALUE;
+  }
+   
+  char *local_buffer = strtok(input_buffer, " \n");
+  while(local_buffer != NULL) {
+    if(strcmp(local_buffer, config_data->username[0])) {// auth. failed! 
+      return AUTH_FAILURE;
+    } else {
+      local_buffer = strtok(NULL, " \n");
+      printf("<<%s>>: %s\n", __func__, local_buffer);
+      if(strcmp(local_buffer, config_data->password[0])) {
+        return AUTH_FAILURE;
+      } else {
+        return AUTH_SUCCESS;
+      }
+    }
+    local_buffer = strtok(NULL, " \n");
+  }
+}
+
+infra_return start_command_infra(int *cntr)
+{
+  char user_data_buffer[20];
+  *cntr = 0;
+  
+  /* First get the user data from the command line */
+  printf("starting the command infra:\n");
+  if (fgets(user_data_buffer, sizeof(user_data_buffer), stdin)) {
+    char *buffer = strtok(user_data_buffer, " \n"); 
+    while(buffer != NULL) {
+      strcpy(global_client_buffer[*(cntr)], buffer);
+      buffer = strtok(NULL, " \n");
+      (*cntr)++;
+    }
+  }
+
+  /* Sanitize input */
+  char newline = '\n';
+  if(!strcmp(global_client_buffer[0], &newline)) {
+    printf("inputs not correct. Please try again!\n");
+    return INCORRECT_INPUT;
+  }
+
+  if(!strcmp(global_client_buffer[0],valid_commands[4])) {
+    return COMMAND_EXIT;
+  }
+
+  /* Interpret the command and return the corresponding value
+   * the required function.
+   */
+
+  return VALID_RETURN;
+}
+
+
+/* Eergghh!! The dirtiest function ever written!! */
+void Distribute_Chunks(uint8_t hash_mod_value)
+{
+  char system_string[50];
+  memset(system_string, '\0', sizeof(system_string));
+  switch(hash_mod_value)
+  {
+    default:/* hash % 4 == 0 */
+      printf("Case 0\n");
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+
+      break;
+
+    case 1: /* hash % 4 == 1 */
+      printf("Case 1\n");
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+
+      break;
+
+    case 2: /*hash % 4 == 2 */
+      printf("Case 2\n");
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+
+      break;
+
+    case 3: /* hash % 4 == 3 */
+      printf("Case 3\n");
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS1");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS2");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS3");
+      system(system_string);
+
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
+          "../DFS_Server/DFS4");
+      system(system_string);
+
+      break;
+  }
+
+  /* Cleanup in the present dir. */
+  system("rm -rvf chunk_*");
+
+  return;
+}
 
 
 
@@ -49,22 +275,19 @@ void Chunk_File(void *filename, uint8_t chunk_option)
   
   /* 1. Get the size of the file first and alloc an array accordingly */
   uint32_t file_size = 0;
-  uint32_t last_packet_size = 0;
   fseek(fp, 0L, SEEK_END);
   file_size = ftell(fp);
   rewind(fp);
 
-  printf("File Size: %d div/4: %d\n", file_size, file_size/4);
   /* If the file size is not a multiple of 4, stuff the remaining 
    * bytes into the last file chunk
    */
   uint32_t packet_size = (file_size/4);
-  if(file_size/4 != 0) {
-    last_packet_size = packet_size + (file_size % 4);
-  } else {
-    last_packet_size = packet_size;
-  }
-  printf("PacketSize: %d; LastPacket: %d\n", packet_size, last_packet_size);
+ 
+#ifdef DEBUG_GENERAL
+  printf("PacketSize: %d\n", packet_size);
+  printf("File Size: %d div/4: %d\n", file_size, file_size/4);
+#endif
 
   int i = 0;
   int cnt = 0;
@@ -72,38 +295,32 @@ void Chunk_File(void *filename, uint8_t chunk_option)
 
   uint8_t file_counter = 1;
   FILE *output_file = NULL;
-  char fileoutputname[15];
-  memset(fileoutputname, '\0', sizeof(fileoutputname));
+  
+  memset(chunk_filename_list, '\0', sizeof(chunk_filename_list));
 
-  sprintf(fileoutputname, "chunk_%d", file_counter);
-  output_file = fopen(fileoutputname, "w");
+  sprintf(chunk_filename_list[file_counter-1], "chunk_%d", file_counter);
+  output_file = fopen(chunk_filename_list[file_counter-1], "w");
 
   while((cnt = fgetc(fp)) != EOF) {
     fp_read_char = (char)cnt;  
     fputc(fp_read_char, output_file);
     i++;
+    
     if(i == packet_size && file_counter < 4) {
-      printf("Here!, file_counter: %d\n", file_counter);
-      /* A file has been written to completely */
-      //fputc(EOF, output_file);
+      
       fclose(output_file);
       file_counter++; i = 0;
-      if(file_counter == 4) {
-        printf("last packet chunk!; file_counter: %d\n", file_counter);
-      }
 
-      sprintf(fileoutputname, "chunk_%d", file_counter);
-      output_file = fopen(fileoutputname, "w");
-      //break;
+      sprintf(chunk_filename_list[file_counter-1], "chunk_%d", file_counter);
+      output_file = fopen(chunk_filename_list[file_counter-1], "w");
       continue;
     } 
   }
 
+  fclose(output_file);
   fclose(fp);
   return;
 }
-
-
 
 void create_md5_hash(char *digest_buffer, char *buffer, int buffer_size)
 {
@@ -159,7 +376,6 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
 
   return (hash_hex_value%4);
 }
-
 
 
 void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
@@ -412,5 +628,31 @@ void Parse_Client_Config_File(void *filename, client_config_data_t *config)
 
   return;
 }
+
+void Execute_Put_File(void *filename)
+{
+  /* Get the hash of the file */
+  unsigned char digest_buffer[MD5_DIGEST_LENGTH];
+  memset(digest_buffer, '\0', sizeof(digest_buffer));
+  
+  //uint8_t hash_mod_val = Generate_MD5_Hash("text1.txt", digest_buffer); 
+  uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
+
+  /* Create the file chunks */
+  Chunk_File(filename, hash_mod_val);
+ 
+#ifdef DEBUG_GENERAL
+  printf("Filename List\n");
+  for(int i = 0; i<4; i++) {
+    printf("%s\n", chunk_filename_list[i]);
+  }
+#endif
+
+  /* Distribute the file chunks to the appropriate servers */
+  Distribute_Chunks(hash_mod_val);
+
+  return;
+}
+
 
 
