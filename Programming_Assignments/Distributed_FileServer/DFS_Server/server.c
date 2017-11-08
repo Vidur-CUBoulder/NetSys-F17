@@ -5,22 +5,22 @@ int main(int argc, char *argv[])
   switch(argc)
   {
     case 1: /* Config. file not passed */
-            printf("Configuration file not passed!\n");
-            exit(0);
-            break;
+      printf("Configuration file not passed!\n");
+      exit(0);
+      break;
 
     case 2: /* This is the Server name */
-            printf("Server name not passed!\n");
-              exit(0);
-              break;
+      printf("Server name not passed!\n");
+      exit(0);
+      break;
 
     case 3: /* This is the port number */
-            printf("Port number not passed!\n");
-            exit(0);
-            break;
+      printf("Port number not passed!\n");
+      exit(0);
+      break;
 
     default:/* Do nothing in this case */
-            break;
+      break;
   }
 
   /* Sanitize the DFS server names passed! */
@@ -39,23 +39,50 @@ int main(int argc, char *argv[])
   uint16_t port_num = atoi((argv[3]));
   int server_socket = 0;
 
-  server_socket = socket(AF_INET, SOCK_STREAM, 0);
+  /*server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if(server_socket < 0) {
     perror("ERROR:socket()\n");
     return 0;
-  }
+  }*/
 
   struct sockaddr_in address;
   memset(&address, 0, sizeof(address));
- 
+
   /* Setup the webserver connections */
   Create_Server_Connections(&server_socket, &address,\
-                    sizeof(address), port_num);
+      sizeof(address), port_num);
 
-  /* Accept the connection */
   socklen_t addr_len = sizeof(address);
-  printf("here!!\n");
-  int accept_ret = accept(server_socket, (struct sockaddr *)&address, &addr_len);
+  int accept_ret = 0;
+
+  char buffer[50];
+  memset(buffer, '\0', sizeof(buffer));
+
+  static int server_counter = 0;
+
+  while(1) {
+
+    infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
+                                        &address, addr_len, &server_config );
+
+#if 1
+    /* Get the data from the client and verify username and pass */
+    memset(buffer, '\0', sizeof(buffer));
+    recv(accept_ret, buffer, 50, 0);
+    //printf("<%s>: buffer: %s\n", __func__, buffer);
+    if(!(strcmp(buffer, "exit"))) {
+      /* Exit from the server program */
+      //exit(0);
+      break;
+    } else {
+      printf("Invalid username sent!\n");
+      break;
+    }
+#endif
+  
+  }
+
+  close(server_socket);
 
 #ifdef TEST_SERVER_CONNECTIONS 
   char buffer[20];
@@ -76,39 +103,6 @@ int main(int argc, char *argv[])
   printf("buffer: %s\n", buffer);
 #endif
 
-  char buffer[48];
-  memset(buffer, '\0', sizeof(buffer));
-
-  /* 1. Get the username and the password from the client 
-   * 2. Check in the struct array if the username and pass 
-   * are valid or not
-   */
-  /* receive the username and the password from the client */
-  recv(accept_ret, buffer, 50, 0);
-  infra_return ret_val = Validate_Login_Credentials(buffer, &server_config);
-  if(ret_val == AUTH_FAILURE) {
-    printf("Authentication failed!; Disconnecting Server!\n");
-    close(server_socket);
-    return 0;
-  }
-  
-  while(1);
-
-#if 0
-  while(1) {
-    /* Get the data from the client and verify username and pass */
-    recv(accept_ret, buffer, 50, 0);
-    if(!(strcmp(buffer, "exit"))) {
-      /* Exit from the server program */
-      exit(0);
-    } else {
-      printf("Invalid username sent!\n");
-      break;
-    }
-  }
-#endif
-
-  close(server_socket);
   return 0;
 }
 

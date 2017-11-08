@@ -17,25 +17,21 @@ int main(int argc, char *argv[])
 #endif
 
   /* Make a connection to the 4 servers */
-  uint8_t client_socket[4];
+  uint8_t client_socket[MAX_DFS_SERVERS];
   memset(client_socket, '\0', sizeof(client_socket));
 
-  struct sockaddr_in server_addr[4];
+  struct sockaddr_in server_addr[MAX_DFS_SERVERS];
   memset(&server_addr, 0, sizeof(server_addr));
     
-  char buffer[MAX_DFS_SERVERS][50];
-  memset(buffer, '\0', sizeof(buffer));
-
   for(int i = 0; i<MAX_DFS_SERVERS; i++) {
     Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
         &server_addr[i], sizeof(server_addr[i])); 
 
 #ifdef TEST_SERVER_CONNECTIONS
     /* Client receive test */ 
-    char buffer[MAX_DFS_SERVERS][50];
     memset(buffer, '\0', sizeof(buffer));
-    recv(client_socket[i], buffer[i], 48, 0);
-    printf("buffer: %s\n", buffer[i]);
+    recv(client_socket[i], buffer, 50, 0);
+    printf("buffer: %s\n", buffer);
 
     /* Client send test */
     int send_ret = send(client_socket[i], client_data.username,\
@@ -45,22 +41,9 @@ int main(int argc, char *argv[])
       exit(0);
     }
 #endif
-  
-    /* Combine the client data and password in one string and then send that */
-    strncat(buffer[i], client_data.username, strlen(client_data.username));
-    strncat(buffer[i], " ", strlen(" "));
-    strncat(buffer[i], client_data.password, strlen(client_data.password)); 
-    //printf("%s\n", buffer[i]);
     
-    int send_ret = send(client_socket[i], buffer[i],\
-        strlen(buffer[i]), 0);
-    if(send_ret < 0) {
-      perror("SEND");
-      exit(0);
-    }
+    Send_Auth_Client_Login(client_socket[i], &client_data);
   }
-  return 0;
-
 
   int cntr = 0;
   while(1) {
@@ -70,6 +53,8 @@ int main(int argc, char *argv[])
     
     if(!strcmp(global_client_buffer[0], valid_commands[3])) {
       /* Exit from the program, gracefully please! */
+      for(int i = 0; i<MAX_DFS_SERVERS; i++)
+        send(client_socket[i], "exit", strlen("exit"), 0);
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
       /* Put the file into the DFS under the 'username' dir. */
@@ -86,7 +71,11 @@ int main(int argc, char *argv[])
       break;
     }
   }
-  
+ 
+  /* Close all client connections */
+  for(int i = 0; i<MAX_DFS_SERVERS; i++)
+    close(client_socket[i]);
+
   return 0;
 }
 

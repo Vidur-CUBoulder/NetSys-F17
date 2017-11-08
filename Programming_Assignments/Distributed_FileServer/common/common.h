@@ -53,6 +53,11 @@ char chunk_filename_list[4][20];
 
 char global_client_buffer[2][20];
 
+/* Index 0 --> DFS1
+ * Index 1 --> DFS2 and so on..
+ */
+int auth_server_list[MAX_DFS_SERVERS];
+
 char *valid_commands[] = {  
   "put", 
   "get",
@@ -62,7 +67,7 @@ char *valid_commands[] = {
 };
 
 infra_return Validate_Login_Credentials(char *input_buffer,\
-                            server_config_data_t *config_data)
+                  server_config_data_t *config_data, uint8_t *server_count)
 {
   if(input_buffer == NULL) {
     printf("<<%s>>: Null Value passed!\n", __func__);
@@ -79,11 +84,45 @@ infra_return Validate_Login_Credentials(char *input_buffer,\
       if(strcmp(local_buffer, config_data->password[0])) {
         return AUTH_FAILURE;
       } else {
+        /* Tell the client that all auth was successful */
         return AUTH_SUCCESS;
+      
       }
     }
     local_buffer = strtok(NULL, " \n");
   }
+}
+
+infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *client_data)
+{
+
+  char buffer[50];
+  memset(buffer, '\0', sizeof(buffer));
+
+  /* Combine the client data and password in one string and then send that */
+  strncat(buffer, client_data->username, strlen(client_data->username));
+  strncat(buffer, " ", strlen(" "));
+  strncat(buffer, client_data->password, strlen(client_data->password)); 
+
+  int send_ret = send(client_socket, buffer, strlen(buffer), 0);
+  if(send_ret < 0) {
+    perror("SEND");
+    return AUTH_FAILURE;
+  }
+  
+  /* Receive pass/fail status from server */
+  memset(buffer, '\0', sizeof(buffer));
+  recv(client_socket, buffer, 50, 0);
+  //printf("<%s>:buffer: %s\n", __func__, buffer);
+ 
+  if(!strcmp(buffer, "fail")) { /* Auth Failed! */
+    /* Closing the connection */
+    close(client_socket);
+  } else { /* Auth Passed! */
+    printf("<%s>: Auth Passed!\n", __func__);
+  }
+
+  return AUTH_SUCCESS;
 }
 
 infra_return start_command_infra(int *cntr)
@@ -120,6 +159,35 @@ infra_return start_command_infra(int *cntr)
   return VALID_RETURN;
 }
 
+infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int server_socket,\
+                                  struct sockaddr_in *address, socklen_t addr_len,\
+                                      server_config_data_t *server_config)
+{
+  /* Accept the connection */
+  *return_accept_socket = accept(server_socket, (struct sockaddr *)address, &addr_len);
+
+  /* 1. Get the username and the password from the client 
+   * 2. Check in the struct array if the username and pass 
+   * are valid or not
+   */
+  char buffer[50];
+  memset(buffer, '\0', sizeof(buffer));
+
+  static uint8_t server_count = 0;
+
+  recv(*return_accept_socket, buffer, 50, 0);
+  infra_return ret_val = Validate_Login_Credentials(buffer, server_config, &server_count);
+  if(ret_val == AUTH_FAILURE) {
+    printf("Authentication failed!; Disconnecting Server!\n");
+    send(*return_accept_socket, "fail", strlen("fail"), 0);
+    //close(server_socket);
+    return AUTH_FAILURE; 
+  }
+  
+  send(*return_accept_socket, "pass", strlen("pass"), 0);
+
+  return AUTH_SUCCESS;
+}
 
 /* Eergghh!! The dirtiest function ever written!! */
 void Distribute_Chunks(uint8_t hash_mod_value)
@@ -635,7 +703,6 @@ void Execute_Put_File(void *filename)
   unsigned char digest_buffer[MD5_DIGEST_LENGTH];
   memset(digest_buffer, '\0', sizeof(digest_buffer));
   
-  //uint8_t hash_mod_val = Generate_MD5_Hash("text1.txt", digest_buffer); 
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
 
   /* Create the file chunks */
