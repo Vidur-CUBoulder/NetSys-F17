@@ -42,8 +42,12 @@ int main(int argc, char *argv[])
     }
 #endif
     
-    Send_Auth_Client_Login(client_socket[i], &client_data);
+    infra_return ret = Send_Auth_Client_Login(client_socket[i], &client_data);
+    /* If SUCCESS, update the running server list in the client */
+    if(ret == AUTH_SUCCESS)
+      auth_server_list[i]++;
   }
+
 
   int cntr = 0;
   while(1) {
@@ -58,7 +62,7 @@ int main(int argc, char *argv[])
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
       /* Put the file into the DFS under the 'username' dir. */
-      Execute_Put_File(global_client_buffer[1]);
+      Execute_Put_File(global_client_buffer[1], &client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {

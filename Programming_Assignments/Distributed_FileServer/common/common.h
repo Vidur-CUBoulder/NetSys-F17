@@ -15,6 +15,8 @@
 #include<openssl/md5.h>
 #include<errno.h>
 #include<limits.h>
+#include<sys/stat.h>
+
 
 #define TCP_SOCKETS SOCK_STREAM
 
@@ -57,6 +59,14 @@ char global_client_buffer[2][20];
  * Index 1 --> DFS2 and so on..
  */
 int auth_server_list[MAX_DFS_SERVERS];
+
+char dfs_server_names[MAX_DFS_SERVERS][5] = {
+          "DFS1", "DFS2", "DFS3", "DFS4"};
+
+char chunk_names[MAX_DFS_SERVERS][10] = {
+  "chunk_1", "chunk_2", "chunk_3", "chunk_4"};
+
+char local_chunk_storage[MAX_DFS_SERVERS][100];
 
 char *valid_commands[] = {  
   "put", 
@@ -118,11 +128,11 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   if(!strcmp(buffer, "fail")) { /* Auth Failed! */
     /* Closing the connection */
     close(client_socket);
+    return AUTH_FAILURE;
   } else { /* Auth Passed! */
     printf("<%s>: Auth Passed!\n", __func__);
+    return AUTH_SUCCESS;
   }
-
-  return AUTH_SUCCESS;
 }
 
 infra_return start_command_infra(int *cntr)
@@ -159,6 +169,134 @@ infra_return start_command_infra(int *cntr)
   return VALID_RETURN;
 }
 
+void Contruct_Chunk(char *dfs_server_name, char *user,\
+                char *chunk_name, uint8_t storage_index)
+{
+  char write_string[70];
+  memset(write_string, '\0', strlen(write_string));
+  FILE *fp = NULL;
+
+  sprintf(write_string, "../DFS_Server/%s/%s/%s", dfs_server_name,\
+      user, chunk_name);
+  fp = fopen(write_string, "wb");
+  fwrite(local_chunk_storage[storage_index], sizeof(char),\
+      strlen(local_chunk_storage[storage_index]), fp);
+  fclose(fp);
+
+  return;
+}
+
+void Chunk_Distribution_Schema(uint8_t hash_mod_value, uint8_t server_number, char *user)
+{
+
+  switch(hash_mod_value)
+  {
+    case 0:
+      switch(server_number)
+      {
+        case 0: /* Server Number 1 */
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[0], 0);
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[1], 1);
+          break;
+
+        case 1: /* Server Number 2 */
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[1], 1);
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[2], 2);
+          break;
+
+        case 2: /* Server Number 3 */
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[2], 2);
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[3], 3);
+          break;
+
+        case 3: /* Server Number 4 */
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[3], 3);
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[0], 0);
+          break;
+      }
+      break;
+
+    case 1: 
+      switch(server_number)
+      {
+        case 0: /* Server Number 1 */
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[3], 3);
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[0], 0);
+          break;
+
+        case 1: /* Server Number 2 */
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[0], 0);
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[1], 1);
+          break;
+
+        case 2: /* Server Number 3 */
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[1], 1);
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[2], 2);
+          break;
+
+        case 3: /* Server Number 4 */
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[2], 2);
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[3], 3);
+          break;
+      }
+      break;
+
+    case 2:
+      switch(server_number)
+      {
+        case 0: /* Server Number 1 */
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[2], 2);
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[3], 3);
+          break;
+
+        case 1: /* Server Number 2 */
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[3], 3);
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[0], 0);
+          break;
+
+        case 2: /* Server Number 3 */
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[0], 0);
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[1], 1);
+          break;
+
+        case 3: /* Server Number 4 */
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[1], 1);
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[2], 2);
+          break;
+      }
+      break;
+
+    case 3:
+      switch(server_number)
+      {
+        case 0: /* Server Number 1 */
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[1], 1);
+          Contruct_Chunk(dfs_server_names[0], user, chunk_names[2], 2);
+          break;
+
+        case 1: /* Server Number 2 */
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[2], 2);
+          Contruct_Chunk(dfs_server_names[1], user, chunk_names[3], 3);
+          break;
+
+        case 2: /* Server Number 3 */
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[3], 3);
+          Contruct_Chunk(dfs_server_names[2], user, chunk_names[0], 0);
+          break;
+
+        case 3: /* Server Number 4 */
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[0], 0);
+          Contruct_Chunk(dfs_server_names[3], user, chunk_names[1], 1);
+          break;
+      }
+      break;
+  }
+
+  return;
+}
+                      
+
+
 infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int server_socket,\
                                   struct sockaddr_in *address, socklen_t addr_len,\
                                       server_config_data_t *server_config)
@@ -189,6 +327,36 @@ infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int serve
   return AUTH_SUCCESS;
 }
 
+void Distribute_Chunks(uint8_t hash_mod_value, client_config_data_t *client_data)
+{
+
+  char write_string[70];
+  memset(write_string, '\0', strlen(write_string));
+  struct stat st = {0};
+  int i = 0;
+  
+  printf("<%s>: Case 0\n", __func__);
+  for(i = 0; i<MAX_DFS_SERVERS; i++) {
+    if(auth_server_list[i]) { //if the server is authenticated
+
+      /* Check if dir. exists in server, if not create it */
+      sprintf(write_string, "../DFS_Server/%s/%s", dfs_server_names[i],\
+          client_data->username);
+      if(stat(write_string, &st) == -1) {
+        printf("%s directory does not exist, create now!\n",\
+            client_data->username);
+        mkdir(write_string, 0700);
+      }
+
+      /* Next put the chunks in the right DFS */
+      Chunk_Distribution_Schema(hash_mod_value, i, client_data->username);
+    }
+  }
+
+  return;
+}
+
+#if 0
 /* Eergghh!! The dirtiest function ever written!! */
 void Distribute_Chunks(uint8_t hash_mod_value)
 {
@@ -330,10 +498,66 @@ void Distribute_Chunks(uint8_t hash_mod_value)
 
   return;
 }
+#endif
+
+void Chunk_Store_File(void *filename)
+{
+  FILE *fp = fopen(filename, "rb");
+  if(fp == NULL) {
+    printf("file %s can't be opened!\n", (char *)filename);
+    return;
+  }
+
+  /* 1. Get the size of the file first and alloc an array accordingly */
+  uint32_t file_size = 0;
+  fseek(fp, 0L, SEEK_END);
+  file_size = ftell(fp);
+  rewind(fp);
+
+  int j = 0, i = 0;
+  uint32_t cnt = 0;
+
+  /* If the file size is not a multiple of 4, stuff the remaining 
+   * bytes into the last file chunk
+   */
+  char fp_read_char = '\0';
+  uint32_t packet_size = (file_size/4);
+ 
+  printf("PacketSize: %d\n", packet_size);
+  printf("File Size: %d div/4: %d\n", file_size, file_size/4);
+ 
+  //char local_chunk_storage[MAX_DFS_SERVERS][(packet_size+4)];
+  memset(local_chunk_storage, '\0', sizeof(local_chunk_storage));
+
+  while((cnt = fgetc(fp)) != EOF) {
+    //fp_read_char = (char)cnt;
+    local_chunk_storage[j][i] = (char)cnt;
+    i++;
+    if((i == packet_size) && (j < (MAX_DFS_SERVERS-1))) {
+      j++; i = 0;
+      continue;
+    }
+  }
+
+#if 0
+  printf("printing the chunks:\n\n");
+  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+    for(int i = 0; i < (packet_size+4); i++) {
+      printf("%c", local_chunk_storage[j][i]);
+    }
+    printf("\nj\n: %d", j);
+  }
+  printf("\n");
+#endif
+
+  fclose(fp);
+
+  return;
+}
 
 
 
-void Chunk_File(void *filename, uint8_t chunk_option)
+void Chunk_File(void *filename)
 {
   FILE *fp = fopen(filename, "rb");
   if(fp == NULL) {
@@ -697,7 +921,7 @@ void Parse_Client_Config_File(void *filename, client_config_data_t *config)
   return;
 }
 
-void Execute_Put_File(void *filename)
+void Execute_Put_File(void *filename, client_config_data_t *client_data)
 {
   /* Get the hash of the file */
   unsigned char digest_buffer[MD5_DIGEST_LENGTH];
@@ -706,17 +930,26 @@ void Execute_Put_File(void *filename)
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
 
   /* Create the file chunks */
-  Chunk_File(filename, hash_mod_val);
- 
+  //Chunk_File(filename);
+  
+  Chunk_Store_File(filename);
+  printf("printing the chunks:\n\n");
+  
+  for(int j = 0; j < MAX_DFS_SERVERS; j++) {
+    printf("%lu %s\n", strlen(local_chunk_storage[j]),local_chunk_storage[j]);
+  }
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    printf("auth_server_list[%d]: %d\n", i, auth_server_list[i]);
+  }
+
+  Distribute_Chunks(hash_mod_val, client_data);
+
 #ifdef DEBUG_GENERAL
   printf("Filename List\n");
   for(int i = 0; i<4; i++) {
     printf("%s\n", chunk_filename_list[i]);
   }
 #endif
-
-  /* Distribute the file chunks to the appropriate servers */
-  Distribute_Chunks(hash_mod_val);
 
   return;
 }
