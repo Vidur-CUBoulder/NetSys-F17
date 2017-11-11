@@ -60,13 +60,14 @@ char global_client_buffer[2][20];
  */
 int auth_server_list[MAX_DFS_SERVERS];
 
-char dfs_server_names[MAX_DFS_SERVERS][5] = {
-          "DFS1", "DFS2", "DFS3", "DFS4"};
+char local_chunk_storage[10000];
 
-char chunk_names[MAX_DFS_SERVERS][10] = {
-  "chunk_1", "chunk_2", "chunk_3", "chunk_4"};
-
-char local_chunk_storage[MAX_DFS_SERVERS][100];
+uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][2] = {
+/*0*/  {{1, 4}, {1, 2}, {2, 3}, {3, 4}},\
+/*1*/  {{1, 2}, {2, 3}, {3, 4}, {4, 1}},\
+/*2*/  {{2, 3}, {3, 4}, {4, 1}, {1, 2}},\
+/*3*/  {{3, 4}, {4, 1}, {1, 2}, {2, 3}}
+};
 
 char *valid_commands[] = {  
   "put", 
@@ -169,133 +170,49 @@ infra_return start_command_infra(int *cntr)
   return VALID_RETURN;
 }
 
-void Contruct_Chunk(char *dfs_server_name, char *user,\
-                char *chunk_name, uint8_t storage_index)
+void Send_Chunk(uint8_t hash_mod_value, void *data_chunk, uint8_t chunk_seq,\
+                  char *user)
 {
-  char write_string[70];
-  memset(write_string, '\0', strlen(write_string));
+  if(data_chunk == NULL) {
+    return;
+  }
+  
   FILE *fp = NULL;
+  char write_string[70];
+  int i = 0;
+  struct stat st = {0};
 
-  sprintf(write_string, "../DFS_Server/%s/%s/%s", dfs_server_name,\
-      user, chunk_name);
-  fp = fopen(write_string, "wb");
-  fwrite(local_chunk_storage[storage_index], sizeof(char),\
-      strlen(local_chunk_storage[storage_index]), fp);
-  fclose(fp);
-
-  return;
-}
-
-void Chunk_Distribution_Schema(uint8_t hash_mod_value, uint8_t server_number, char *user)
-{
-
-  switch(hash_mod_value)
-  {
-    case 0:
-      switch(server_number)
-      {
-        case 0: /* Server Number 1 */
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[0], 0);
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[1], 1);
-          break;
-
-        case 1: /* Server Number 2 */
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[1], 1);
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[2], 2);
-          break;
-
-        case 2: /* Server Number 3 */
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[2], 2);
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[3], 3);
-          break;
-
-        case 3: /* Server Number 4 */
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[3], 3);
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[0], 0);
-          break;
+  for(i = 0; i<2; i++) {    
+   
+    /* The below logic checks if the server is authenticated or not */
+    if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
+      continue;
+    
+    memset(write_string, '\0', strlen(write_string));
+    sprintf(write_string, "../DFS_Server/DFS%d/%s",\
+        Distribution_Schema[hash_mod_value][chunk_seq][i], user);
+    printf("Sending... hash_val: %d\nchunk %d\npath: %s\n", hash_mod_value, chunk_seq, write_string);
+    if(stat(write_string, &st) == -1) {
+      printf("%s directory does not exist, create now!\n", user);
+      int ret_val = mkdir(write_string, 0777);
+      if(ret_val < 0) {
+        perror("");
+        return;
       }
-      break;
-
-    case 1: 
-      switch(server_number)
-      {
-        case 0: /* Server Number 1 */
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[3], 3);
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[0], 0);
-          break;
-
-        case 1: /* Server Number 2 */
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[0], 0);
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[1], 1);
-          break;
-
-        case 2: /* Server Number 3 */
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[1], 1);
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[2], 2);
-          break;
-
-        case 3: /* Server Number 4 */
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[2], 2);
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[3], 3);
-          break;
-      }
-      break;
-
-    case 2:
-      switch(server_number)
-      {
-        case 0: /* Server Number 1 */
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[2], 2);
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[3], 3);
-          break;
-
-        case 1: /* Server Number 2 */
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[3], 3);
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[0], 0);
-          break;
-
-        case 2: /* Server Number 3 */
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[0], 0);
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[1], 1);
-          break;
-
-        case 3: /* Server Number 4 */
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[1], 1);
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[2], 2);
-          break;
-      }
-      break;
-
-    case 3:
-      switch(server_number)
-      {
-        case 0: /* Server Number 1 */
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[1], 1);
-          Contruct_Chunk(dfs_server_names[0], user, chunk_names[2], 2);
-          break;
-
-        case 1: /* Server Number 2 */
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[2], 2);
-          Contruct_Chunk(dfs_server_names[1], user, chunk_names[3], 3);
-          break;
-
-        case 2: /* Server Number 3 */
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[3], 3);
-          Contruct_Chunk(dfs_server_names[2], user, chunk_names[0], 0);
-          break;
-
-        case 3: /* Server Number 4 */
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[0], 0);
-          Contruct_Chunk(dfs_server_names[3], user, chunk_names[1], 1);
-          break;
-      }
-      break;
+    }
+    sprintf(write_string, "../DFS_Server/DFS%d/%s/chunk_%d",\
+        Distribution_Schema[hash_mod_value][chunk_seq][i], user, chunk_seq);  
+    fp = fopen(write_string, "wb");
+    if(fp == NULL) {
+      printf("<%s>: Unable to open the file!\n", __func__);
+      return;
+    }
+    fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
+    fclose(fp);
   }
 
   return;
 }
-                      
-
 
 infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int server_socket,\
                                   struct sockaddr_in *address, socklen_t addr_len,\
@@ -327,180 +244,7 @@ infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int serve
   return AUTH_SUCCESS;
 }
 
-void Distribute_Chunks(uint8_t hash_mod_value, client_config_data_t *client_data)
-{
-
-  char write_string[70];
-  memset(write_string, '\0', strlen(write_string));
-  struct stat st = {0};
-  int i = 0;
-  
-  printf("<%s>: Case 0\n", __func__);
-  for(i = 0; i<MAX_DFS_SERVERS; i++) {
-    if(auth_server_list[i]) { //if the server is authenticated
-
-      /* Check if dir. exists in server, if not create it */
-      sprintf(write_string, "../DFS_Server/%s/%s", dfs_server_names[i],\
-          client_data->username);
-      if(stat(write_string, &st) == -1) {
-        printf("%s directory does not exist, create now!\n",\
-            client_data->username);
-        mkdir(write_string, 0700);
-      }
-
-      /* Next put the chunks in the right DFS */
-      Chunk_Distribution_Schema(hash_mod_value, i, client_data->username);
-    }
-  }
-
-  return;
-}
-
-#if 0
-/* Eergghh!! The dirtiest function ever written!! */
-void Distribute_Chunks(uint8_t hash_mod_value)
-{
-  char system_string[50];
-  memset(system_string, '\0', sizeof(system_string));
-  switch(hash_mod_value)
-  {
-    default:/* hash % 4 == 0 */
-      printf("Case 0\n");
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-
-      break;
-
-    case 1: /* hash % 4 == 1 */
-      printf("Case 1\n");
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-
-      break;
-
-    case 2: /*hash % 4 == 2 */
-      printf("Case 2\n");
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-
-      break;
-
-    case 3: /* hash % 4 == 3 */
-      printf("Case 3\n");
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS1");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[2],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS2");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[3],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS3");
-      system(system_string);
-
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[0],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-      sprintf(system_string, "cp -rvf %s %s", chunk_filename_list[1],\
-          "../DFS_Server/DFS4");
-      system(system_string);
-
-      break;
-  }
-
-  /* Cleanup in the present dir. */
-  system("rm -rvf chunk_*");
-
-  return;
-}
-#endif
-
-void Chunk_Store_File(void *filename)
+void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
 {
   FILE *fp = fopen(filename, "rb");
   if(fp == NULL) {
@@ -514,41 +258,36 @@ void Chunk_Store_File(void *filename)
   file_size = ftell(fp);
   rewind(fp);
 
-  int j = 0, i = 0;
-  uint32_t cnt = 0;
+  uint8_t seq = 0;
+  uint32_t read_count = 0;
 
   /* If the file size is not a multiple of 4, stuff the remaining 
    * bytes into the last file chunk
    */
-  char fp_read_char = '\0';
   uint32_t packet_size = (file_size/4);
  
-  printf("PacketSize: %d\n", packet_size);
-  printf("File Size: %d div/4: %d\n", file_size, file_size/4);
+  printf("File Size: %d packet_size: %d\n", file_size, packet_size);
  
-  //char local_chunk_storage[MAX_DFS_SERVERS][(packet_size+4)];
   memset(local_chunk_storage, '\0', sizeof(local_chunk_storage));
 
-  while((cnt = fgetc(fp)) != EOF) {
-    //fp_read_char = (char)cnt;
-    local_chunk_storage[j][i] = (char)cnt;
-    i++;
-    if((i == packet_size) && (j < (MAX_DFS_SERVERS-1))) {
-      j++; i = 0;
-      continue;
-    }
-  }
+  while(!feof(fp)) {
+    memset(local_chunk_storage, '\0', sizeof(local_chunk_storage));
+    if(seq == (MAX_DFS_SERVERS-1)) {
+      printf("Last packet NOW!\n");
+      read_count = fread(local_chunk_storage, 1, (packet_size + (file_size%4)), fp);
+      printf("read_count: %d\n", read_count);
 
-#if 0
-  printf("printing the chunks:\n\n");
-  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
-    for(int i = 0; i < (packet_size+4); i++) {
-      printf("%c", local_chunk_storage[j][i]);
-    }
-    printf("\nj\n: %d", j);
+      Send_Chunk(hash_mod_value, local_chunk_storage, seq, user); 
+
+      return;
+    } else {
+      read_count = fread(local_chunk_storage, 1, packet_size, fp);
+      printf("read_count: %d\n", read_count);
+    } 
+
+    Send_Chunk(hash_mod_value, local_chunk_storage, seq, user); 
+    seq++;
   }
-  printf("\n");
-#endif
 
   fclose(fp);
 
@@ -932,25 +671,8 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
   /* Create the file chunks */
   //Chunk_File(filename);
   
-  Chunk_Store_File(filename);
-  printf("printing the chunks:\n\n");
-  
-  for(int j = 0; j < MAX_DFS_SERVERS; j++) {
-    printf("%lu %s\n", strlen(local_chunk_storage[j]),local_chunk_storage[j]);
-  }
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    printf("auth_server_list[%d]: %d\n", i, auth_server_list[i]);
-  }
-
-  Distribute_Chunks(hash_mod_val, client_data);
-
-#ifdef DEBUG_GENERAL
-  printf("Filename List\n");
-  for(int i = 0; i<4; i++) {
-    printf("%s\n", chunk_filename_list[i]);
-  }
-#endif
-
+  Chunk_Store_File(filename, hash_mod_val, client_data->username);
+ 
   return;
 }
 
