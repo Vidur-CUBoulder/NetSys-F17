@@ -16,7 +16,7 @@
 #include<errno.h>
 #include<limits.h>
 #include<sys/stat.h>
-
+#include<dirent.h>
 
 #define TCP_SOCKETS SOCK_STREAM
 
@@ -61,6 +61,10 @@ char global_client_buffer[2][20];
  * Index 1 --> DFS2 and so on..
  */
 int auth_server_list[MAX_DFS_SERVERS];
+
+char chunk_names[MAX_DFS_SERVERS][10] = {
+  "chunk_0", "chunk_1", "chunk_2", "chunk_3"
+  };
 
 uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][CHUNK_DUPLICATES] = {
 /*0*/  {{1, 4}, {1, 2}, {2, 3}, {3, 4}},\
@@ -432,7 +436,6 @@ void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
   return;
 }
 
-
 void Parse_Server_Config_File(void *filename, server_config_data_t *config)
 {
   size_t read_line = 0;
@@ -669,14 +672,81 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
   memset(digest_buffer, '\0', sizeof(digest_buffer));
   
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
-
-  /* Create the file chunks */
-  //Chunk_File(filename);
   
   Chunk_Store_File(filename, hash_mod_val, client_data->username);
  
   return;
 }
+
+void Execute_List(client_config_data_t *client_data)
+{
+  /* Query all the servers and get the files from them */
+  DIR *directory = NULL;
+  struct dirent *dir = NULL;
+
+  /* Contruct the path to the directories and check if they are available */
+  char path_string[60];
+  memset(path_string, '\0', sizeof(path_string));
+  
+  uint8_t chunk_checklist[MAX_DFS_SERVERS];
+  memset(chunk_checklist, 0, sizeof(chunk_checklist));
+
+  /* File Look Up Counter*/
+  /* The first index is the server number and the second index
+   * denotes the chunk number. This let's you know that chunk 
+   * number is there in which server
+   */
+  uint8_t local_file_lookup[MAX_DFS_SERVERS][MAX_DFS_SERVERS];
+  memset(local_file_lookup, 0, sizeof(local_file_lookup));
+
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    memset(path_string, '\0', sizeof(path_string));
+    sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
+
+    directory = opendir(path_string);
+    if(directory) {
+      while((dir = readdir(directory)) != NULL) {
+       
+        /* Discard these 2 cases! */
+        if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+          continue;
+        
+        /* Query through the name list to see if you find a match */
+        for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+          if(!strcmp(dir->d_name, chunk_names[j])) {
+            /* If you find a match, just increment the counter for 
+             * that particular chunk number. That way you know what 
+             * is there in what server.
+             */     
+            (local_file_lookup[i][j])++;
+            chunk_checklist[j]++;
+            break;
+          }
+        }
+      }
+    }
+    closedir(directory);
+  }
+
+#ifdef DEBUG_GENERAL
+  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+    printf("local_file_lookup[%d]: %d %d %d %d\n",j,\
+        local_file_lookup[j][0], local_file_lookup[j][1],\
+        local_file_lookup[j][2], local_file_lookup[j][3]);
+  }
+#endif
+
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    if(chunk_checklist[i] < 1) {
+      printf("%s incomplete!\n", chunk_names[i]);
+    } else {
+      printf("%s\n", chunk_names[i]);
+    }
+  }
+
+  return;
+}
+
 
 
 

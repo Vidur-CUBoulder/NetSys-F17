@@ -65,8 +65,10 @@ int main(int argc, char *argv[])
       Execute_Put_File(global_client_buffer[1], &client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
+      Get_File_From_Servers();
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
+      Execute_List(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
       /* Clear the CLI */
       system("clear");
