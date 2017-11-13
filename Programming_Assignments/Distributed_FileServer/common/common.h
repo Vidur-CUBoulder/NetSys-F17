@@ -22,6 +22,8 @@
 
 #define MAX_DFS_SERVERS 4
 
+#define CHUNK_DUPLICATES 2
+
 typedef enum infra_return_e {
   NULL_VALUE = 0,
   INCORRECT_INPUT,
@@ -60,9 +62,7 @@ char global_client_buffer[2][20];
  */
 int auth_server_list[MAX_DFS_SERVERS];
 
-char local_chunk_storage[10000];
-
-uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][2] = {
+uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][CHUNK_DUPLICATES] = {
 /*0*/  {{1, 4}, {1, 2}, {2, 3}, {3, 4}},\
 /*1*/  {{1, 2}, {2, 3}, {3, 4}, {4, 1}},\
 /*2*/  {{2, 3}, {3, 4}, {4, 1}, {1, 2}},\
@@ -127,8 +127,7 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   //printf("<%s>:buffer: %s\n", __func__, buffer);
  
   if(!strcmp(buffer, "fail")) { /* Auth Failed! */
-    /* Closing the connection */
-    close(client_socket);
+    /* Don't close connection, just decline and exit */
     return AUTH_FAILURE;
   } else { /* Auth Passed! */
     printf("<%s>: Auth Passed!\n", __func__);
@@ -170,8 +169,8 @@ infra_return start_command_infra(int *cntr)
   return VALID_RETURN;
 }
 
-void Send_Chunk(uint8_t hash_mod_value, void *data_chunk, uint8_t chunk_seq,\
-                  char *user)
+void Send_Chunk(uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
+                          uint8_t chunk_seq, char *user)
 {
   if(data_chunk == NULL) {
     return;
@@ -182,7 +181,7 @@ void Send_Chunk(uint8_t hash_mod_value, void *data_chunk, uint8_t chunk_seq,\
   int i = 0;
   struct stat st = {0};
 
-  for(i = 0; i<2; i++) {    
+  for(i = 0; i<CHUNK_DUPLICATES; i++) {    
    
     /* The below logic checks if the server is authenticated or not */
     if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
@@ -207,7 +206,8 @@ void Send_Chunk(uint8_t hash_mod_value, void *data_chunk, uint8_t chunk_seq,\
       printf("<%s>: Unable to open the file!\n", __func__);
       return;
     }
-    fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
+    //fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
+    fwrite((char *)data_chunk, 1, chunk_size, fp);
     fclose(fp);
   }
 
@@ -267,25 +267,29 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
   uint32_t packet_size = (file_size/4);
  
   printf("File Size: %d packet_size: %d\n", file_size, packet_size);
- 
-  memset(local_chunk_storage, '\0', sizeof(local_chunk_storage));
 
+  char chunk_storage[10000];
+  memset(chunk_storage, '\0', sizeof(chunk_storage));
+  
   while(!feof(fp)) {
-    memset(local_chunk_storage, '\0', sizeof(local_chunk_storage));
+    /* Buffer Cleanup */ 
+    memset(chunk_storage, '\0', sizeof(chunk_storage));
+   
+    /* Need to handle the case for the last packet */
     if(seq == (MAX_DFS_SERVERS-1)) {
       printf("Last packet NOW!\n");
-      read_count = fread(local_chunk_storage, 1, (packet_size + (file_size%4)), fp);
-      printf("read_count: %d\n", read_count);
+      read_count = fread(chunk_storage, 1, (packet_size + (file_size%4)), fp);
+      //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
-      Send_Chunk(hash_mod_value, local_chunk_storage, seq, user); 
-
+      Send_Chunk(hash_mod_value, chunk_storage, read_count, seq, user); 
       return;
     } else {
-      read_count = fread(local_chunk_storage, 1, packet_size, fp);
-      printf("read_count: %d\n", read_count);
+      read_count = fread(chunk_storage, 1, packet_size, fp);
+      printf("<<%s>>: read_count: %d\n", __func__, read_count);
     } 
 
-    Send_Chunk(hash_mod_value, local_chunk_storage, seq, user); 
+    /* Send the chunk to its appropriate location */
+    Send_Chunk(hash_mod_value, chunk_storage, read_count, seq, user); 
     seq++;
   }
 
@@ -293,8 +297,6 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
 
   return;
 }
-
-
 
 void Chunk_File(void *filename)
 {
