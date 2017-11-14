@@ -44,6 +44,7 @@ typedef struct __client_IP_and_Port_t {
 typedef struct __client_config_data_t {
   char DFS_Server_Names[10][10];
   client_ip_port_t client_ports;
+  char filename[20];
   char username[15];
   char password[15];
 } client_config_data_t;
@@ -139,7 +140,7 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   }
 }
 
-infra_return start_command_infra(int *cntr)
+infra_return start_command_infra(int *cntr, client_config_data_t *client_data)
 {
   char user_data_buffer[20];
   *cntr = 0;
@@ -154,6 +155,21 @@ infra_return start_command_infra(int *cntr)
       (*cntr)++;
     }
   }
+
+  char local_buffer[40];
+  memset(local_buffer, '\0', sizeof(local_buffer));
+
+  strcpy(local_buffer, global_client_buffer[1]);
+
+  char *buffer = strtok(local_buffer, "/\n");
+  while(buffer != NULL) {
+    /* the last thing on the command line should be the filename target! */ 
+    memset(client_data->filename, '\0', sizeof(client_data->filename));
+    strncpy(client_data->filename, buffer, strlen(buffer));
+    buffer = strtok(NULL, "/\n");
+  }
+  
+  printf("filename: %s\n", client_data->filename);
 
   /* Sanitize input */
   char newline = '\n';
@@ -173,8 +189,8 @@ infra_return start_command_infra(int *cntr)
   return VALID_RETURN;
 }
 
-void Send_Chunk(uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
-                          uint8_t chunk_seq, char *user)
+void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
+                          uint8_t chunk_seq, client_config_data_t *client_data)
 {
   if(data_chunk == NULL) {
     return;
@@ -193,24 +209,24 @@ void Send_Chunk(uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
     
     memset(write_string, '\0', strlen(write_string));
     sprintf(write_string, "../DFS_Server/DFS%d/%s",\
-        Distribution_Schema[hash_mod_value][chunk_seq][i], user);
+        Distribution_Schema[hash_mod_value][chunk_seq][i], client_data->username);
     printf("Sending... hash_val: %d\nchunk %d\npath: %s\n", hash_mod_value, chunk_seq, write_string);
     if(stat(write_string, &st) == -1) {
-      printf("%s directory does not exist, create now!\n", user);
+      printf("%s directory does not exist, create now!\n", client_data->username);
       int ret_val = mkdir(write_string, 0777);
       if(ret_val < 0) {
         perror("");
         return;
       }
     }
-    sprintf(write_string, "../DFS_Server/DFS%d/%s/chunk_%d",\
-        Distribution_Schema[hash_mod_value][chunk_seq][i], user, chunk_seq);  
+    sprintf(write_string, "../DFS_Server/DFS%d/%s/.%s.chunk_%d",\
+        Distribution_Schema[hash_mod_value][chunk_seq][i], client_data->username,\
+                                client_data->filename, chunk_seq);  
     fp = fopen(write_string, "wb");
     if(fp == NULL) {
       printf("<%s>: Unable to open the file!\n", __func__);
       return;
     }
-    //fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
     fwrite((char *)data_chunk, 1, chunk_size, fp);
     fclose(fp);
   }
@@ -248,7 +264,7 @@ infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int serve
   return AUTH_SUCCESS;
 }
 
-void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
+void Chunk_Store_File(void *filename, uint8_t hash_mod_value, client_config_data_t *client_data)
 {
   FILE *fp = fopen(filename, "rb");
   if(fp == NULL) {
@@ -274,7 +290,7 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
 
   char chunk_storage[10000];
   memset(chunk_storage, '\0', sizeof(chunk_storage));
-  
+
   while(!feof(fp)) {
     /* Buffer Cleanup */ 
     memset(chunk_storage, '\0', sizeof(chunk_storage));
@@ -285,7 +301,7 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
       read_count = fread(chunk_storage, 1, (packet_size + (file_size%4)), fp);
       //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
-      Send_Chunk(hash_mod_value, chunk_storage, read_count, seq, user); 
+      Send_Chunk(filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
       return;
     } else {
       read_count = fread(chunk_storage, 1, packet_size, fp);
@@ -293,7 +309,7 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, char *user)
     } 
 
     /* Send the chunk to its appropriate location */
-    Send_Chunk(hash_mod_value, chunk_storage, read_count, seq, user); 
+    Send_Chunk(filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
     seq++;
   }
 
@@ -673,7 +689,7 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
   
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
   
-  Chunk_Store_File(filename, hash_mod_val, client_data->username);
+  Chunk_Store_File(filename, hash_mod_val, client_data);
  
   return;
 }
@@ -747,6 +763,51 @@ void Execute_List(client_config_data_t *client_data)
   return;
 }
 
+void Get_File_From_Servers(client_config_data_t *client_data)
+{
+  DIR *directory = NULL;
+  struct dirent *dir = NULL;
+  
+  /* Query the server locations for the chunks; in order */
+  char path_string[60];
+  memset(path_string, '\0', sizeof(path_string));
+ 
+  bool found = false;
+
+  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+      memset(path_string, '\0', sizeof(path_string));
+      sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
+      
+      directory = opendir(path_string);
+      if(directory) {
+        while((dir = readdir(directory)) != NULL) {
+
+          /* Discard these 2 cases! */
+          if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+            continue;
+          
+          if(!strcmp(dir->d_name, chunk_names[j])) {
+            /* Do the read and write operation now! */
+            printf("%s\n", dir->d_name);
+            found = true;
+            break;
+          }
+        }
+      }
+      if(found == true) {
+        closedir(directory);
+        found = false;
+        break;
+      } else {
+        closedir(directory);
+      }
+    }
+  }
+  return;
+}
+    
+    
 
 
 

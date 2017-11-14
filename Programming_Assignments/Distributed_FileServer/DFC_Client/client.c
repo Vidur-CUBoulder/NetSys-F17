@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
   while(1) {
     
     /* Start a command line interface */
-    start_command_infra(&cntr);
+    start_command_infra(&cntr, &client_data);
     
     if(!strcmp(global_client_buffer[0], valid_commands[3])) {
       /* Exit from the program, gracefully please! */
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
       Execute_Put_File(global_client_buffer[1], &client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
-      Get_File_From_Servers();
+      Get_File_From_Servers(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
       Execute_List(&client_data);
