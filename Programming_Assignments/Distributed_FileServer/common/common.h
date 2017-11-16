@@ -58,13 +58,16 @@ char chunk_filename_list[4][20];
 
 char global_client_buffer[2][20];
 
+uint8_t put_file_count = 0;
+char cache_put_filenames[5][20];
+
 /* Index 0 --> DFS1
  * Index 1 --> DFS2 and so on..
  */
 int auth_server_list[MAX_DFS_SERVERS];
 
 char chunk_names[MAX_DFS_SERVERS][10] = {
-  "chunk_0", "chunk_1", "chunk_2", "chunk_3"
+  ".chunk_0", ".chunk_1", ".chunk_2", ".chunk_3"
   };
 
 uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][CHUNK_DUPLICATES] = {
@@ -144,7 +147,9 @@ infra_return start_command_infra(int *cntr, client_config_data_t *client_data)
 {
   char user_data_buffer[20];
   *cntr = 0;
-  
+ 
+  memset(global_client_buffer, '\0', sizeof(global_client_buffer));
+
   /* First get the user data from the command line */
   printf("starting the command infra:\n");
   if (fgets(user_data_buffer, sizeof(user_data_buffer), stdin)) {
@@ -156,20 +161,22 @@ infra_return start_command_infra(int *cntr, client_config_data_t *client_data)
     }
   }
 
-  char local_buffer[40];
-  memset(local_buffer, '\0', sizeof(local_buffer));
+  if(global_client_buffer[1] != NULL) {
 
-  strcpy(local_buffer, global_client_buffer[1]);
+    char local_buffer[40];
+    memset(local_buffer, '\0', sizeof(local_buffer));
 
-  char *buffer = strtok(local_buffer, "/\n");
-  while(buffer != NULL) {
-    /* the last thing on the command line should be the filename target! */ 
-    memset(client_data->filename, '\0', sizeof(client_data->filename));
-    strncpy(client_data->filename, buffer, strlen(buffer));
-    buffer = strtok(NULL, "/\n");
+    strcpy(local_buffer, global_client_buffer[1]);
+
+    char *buffer = strtok(local_buffer, "/\n");
+    while(buffer != NULL) {
+      /* the last thing on the command line should be the filename target! */ 
+      memset(client_data->filename, '\0', sizeof(client_data->filename));
+      strncpy(client_data->filename, buffer, strlen(buffer));
+      buffer = strtok(NULL, "/\n");
+    }
+    
   }
-  
-  printf("filename: %s\n", client_data->filename);
 
   /* Sanitize input */
   char newline = '\n';
@@ -227,6 +234,7 @@ void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t 
       printf("<%s>: Unable to open the file!\n", __func__);
       return;
     }
+    //fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
     fwrite((char *)data_chunk, 1, chunk_size, fp);
     fclose(fp);
   }
@@ -686,7 +694,11 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
   /* Get the hash of the file */
   unsigned char digest_buffer[MD5_DIGEST_LENGTH];
   memset(digest_buffer, '\0', sizeof(digest_buffer));
-  
+    
+  memcpy(cache_put_filenames[put_file_count++], client_data->filename,\
+                    strlen(client_data->filename));
+  printf("filename: %s\n", cache_put_filenames[put_file_count-1]);
+
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
   
   Chunk_Store_File(filename, hash_mod_val, client_data);
@@ -715,34 +727,60 @@ void Execute_List(client_config_data_t *client_data)
   uint8_t local_file_lookup[MAX_DFS_SERVERS][MAX_DFS_SERVERS];
   memset(local_file_lookup, 0, sizeof(local_file_lookup));
 
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    memset(path_string, '\0', sizeof(path_string));
-    sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
+  char file_prefix[40];
+  memset(file_prefix, '\0', sizeof(file_prefix));
+ 
+  /* TODO: This needs to be abstracted further. It's utterly unreadable and 
+   *        I can't maintain it like this!
+   */
 
-    directory = opendir(path_string);
-    if(directory) {
-      while((dir = readdir(directory)) != NULL) {
-       
-        /* Discard these 2 cases! */
-        if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
-          continue;
-        
-        /* Query through the name list to see if you find a match */
-        for(int j = 0; j<MAX_DFS_SERVERS; j++) {
-          if(!strcmp(dir->d_name, chunk_names[j])) {
-            /* If you find a match, just increment the counter for 
-             * that particular chunk number. That way you know what 
-             * is there in what server.
-             */     
-            (local_file_lookup[i][j])++;
-            chunk_checklist[j]++;
-            break;
+  for(int file_count = 0; file_count < put_file_count; file_count++) {
+  
+    memset(chunk_checklist, 0, sizeof(chunk_checklist));
+    memset(local_file_lookup, 0, sizeof(local_file_lookup));
+    memset(file_prefix, '\0', sizeof(file_prefix));
+    
+    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+      if(auth_server_list[i]) {
+        memset(path_string, '\0', sizeof(path_string));
+        sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
+
+        directory = opendir(path_string);
+        if(directory) {
+          while((dir = readdir(directory)) != NULL) {
+
+            /* Discard these 2 cases! */
+            if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+              continue;
+
+            /* Query through the name list to see if you find a match */
+            for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+              sprintf(file_prefix, ".%s%s", cache_put_filenames[file_count],\
+                  chunk_names[j]);
+              if(!strcmp(dir->d_name, file_prefix)) {
+                /* If you find a match, just increment the counter for 
+                 * that particular chunk number. That way you know what 
+                 * is there in what server.
+                 */     
+                (local_file_lookup[i][j])++;
+                chunk_checklist[j]++;
+                break;
+              }
+            }
+            }
           }
+          closedir(directory);
+        }
+      }
+      printf("FILE: %s\n", cache_put_filenames[file_count]);
+      for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+        if(chunk_checklist[i] < 1) {
+          printf("%s incomplete!\n", chunk_names[i]);
+        } else {
+          printf("%s\n", chunk_names[i]);
         }
       }
     }
-    closedir(directory);
-  }
 
 #ifdef DEBUG_GENERAL
   for(int j = 0; j<MAX_DFS_SERVERS; j++) {
@@ -751,14 +789,6 @@ void Execute_List(client_config_data_t *client_data)
         local_file_lookup[j][2], local_file_lookup[j][3]);
   }
 #endif
-
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    if(chunk_checklist[i] < 1) {
-      printf("%s incomplete!\n", chunk_names[i]);
-    } else {
-      printf("%s\n", chunk_names[i]);
-    }
-  }
 
   return;
 }
@@ -778,7 +808,8 @@ void Get_File_From_Servers(client_config_data_t *client_data)
     for(int i = 0; i<MAX_DFS_SERVERS; i++) {
       memset(path_string, '\0', sizeof(path_string));
       sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
-      
+      //printf("%s\n", path_string);
+
       directory = opendir(path_string);
       if(directory) {
         while((dir = readdir(directory)) != NULL) {
@@ -786,7 +817,8 @@ void Get_File_From_Servers(client_config_data_t *client_data)
           /* Discard these 2 cases! */
           if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
             continue;
-          
+         
+        
           if(!strcmp(dir->d_name, chunk_names[j])) {
             /* Do the read and write operation now! */
             printf("%s\n", dir->d_name);
@@ -794,6 +826,8 @@ void Get_File_From_Servers(client_config_data_t *client_data)
             break;
           }
         }
+      } else {
+        printf("Unable to open the file!\n");
       }
       if(found == true) {
         closedir(directory);
