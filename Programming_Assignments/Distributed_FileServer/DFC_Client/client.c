@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
         &server_addr[i], sizeof(server_addr[i])); 
 
-#ifdef TEST_SERVER_CONNECTIONS
+#if 0
     /* Client receive test */ 
     memset(buffer, '\0', sizeof(buffer));
     recv(client_socket[i], buffer, 50, 0);
@@ -62,14 +62,18 @@ int main(int argc, char *argv[])
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
       /* Put the file into the DFS under the 'username' dir. */
-      Execute_Put_File(global_client_buffer[1], &client_data);
+      /* Authenticate with all the servers first */
+      Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
+      //Execute_Put_File(global_client_buffer[1], &client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
       printf("In GET!\n");
-      Get_File_From_Servers(&client_data);
+      Authenticate_Client_Connections(valid_commands[1], client_socket, &client_data); 
+      //Get_File_From_Servers(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
-      Execute_List(&client_data);
+      Authenticate_Client_Connections(valid_commands[2], client_socket, &client_data); 
+      //Execute_List(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
       /* Clear the CLI */
       system("clear");

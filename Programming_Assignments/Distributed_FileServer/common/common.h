@@ -64,7 +64,7 @@ char cache_put_filenames[5][20];
 /* Index 0 --> DFS1
  * Index 1 --> DFS2 and so on..
  */
-int auth_server_list[MAX_DFS_SERVERS];
+uint8_t auth_server_list[MAX_DFS_SERVERS];
 
 char chunk_names[MAX_DFS_SERVERS][10] = {
   ".chunk_0", ".chunk_1", ".chunk_2", ".chunk_3"
@@ -242,13 +242,8 @@ void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t 
   return;
 }
 
-infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int server_socket,\
-                                  struct sockaddr_in *address, socklen_t addr_len,\
-                                      server_config_data_t *server_config)
+infra_return Auth_Client_Connections(int *return_accept_socket, server_config_data_t *server_config)
 {
-  /* Accept the connection */
-  *return_accept_socket = accept(server_socket, (struct sockaddr *)address, &addr_len);
-
   /* 1. Get the username and the password from the client 
    * 2. Check in the struct array if the username and pass 
    * are valid or not
@@ -258,18 +253,31 @@ infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int serve
 
   static uint8_t server_count = 0;
 
+  printf("HERE!! --> %s\n", __func__);
+
   recv(*return_accept_socket, buffer, 50, 0);
   infra_return ret_val = Validate_Login_Credentials(buffer, server_config, &server_count);
   if(ret_val == AUTH_FAILURE) {
     printf("Authentication failed!; Disconnecting Server!\n");
     send(*return_accept_socket, "fail", strlen("fail"), 0);
-    //close(server_socket);
     return AUTH_FAILURE; 
   }
   
   send(*return_accept_socket, "pass", strlen("pass"), 0);
 
   return AUTH_SUCCESS;
+}
+
+infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int server_socket,\
+                                  struct sockaddr_in *address, socklen_t addr_len,\
+                                      server_config_data_t *server_config)
+{
+  /* Accept the connection */
+  *return_accept_socket = accept(server_socket, (struct sockaddr *)address, &addr_len);
+
+  infra_return return_value = Auth_Client_Connections(return_accept_socket, server_config);
+
+  return return_value;
 }
 
 void Chunk_Store_File(void *filename, uint8_t hash_mod_value, client_config_data_t *client_data)
@@ -689,6 +697,7 @@ void Parse_Client_Config_File(void *filename, client_config_data_t *config)
   return;
 }
 
+#if 0
 void Execute_Put_File(void *filename, client_config_data_t *client_data)
 {
   /* Get the hash of the file */
@@ -705,6 +714,7 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
  
   return;
 }
+#endif
 
 void Execute_List(client_config_data_t *client_data)
 {
@@ -793,6 +803,7 @@ void Execute_List(client_config_data_t *client_data)
   return;
 }
 
+#if 0
 void Get_File_From_Servers(client_config_data_t *client_data)
 {
   DIR *directory = NULL;
@@ -840,8 +851,28 @@ void Get_File_From_Servers(client_config_data_t *client_data)
   }
   return;
 }
+#endif    
     
-    
+void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,\
+              client_config_data_t *client_data)
+{
+  /* Clear the autheticate server list buffer */
+  memset(auth_server_list, 0, sizeof(auth_server_list));
+  
+  /* Iterate over all sockets and send the command to the server */
+  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
+    send(client_socket[i], command_name, strlen(command_name), 0);
+
+    /* Call the auth infra to authticate usernames and passwords */
+    infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
+    if(ret == AUTH_SUCCESS)
+      auth_server_list[i]++;
+  }
+
+  return;
+}
+
+
 
 
 

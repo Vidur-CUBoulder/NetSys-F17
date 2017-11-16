@@ -60,20 +60,27 @@ int main(int argc, char *argv[])
 
   static int server_counter = 0;
 
-  while(1) {
-
-    infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
-                                        &address, addr_len, &server_config );
+  infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
+      &address, addr_len, &server_config );
 
 #if 1
+  while(1) {
+
     /* Get the data from the client and verify username and pass */
     memset(buffer, '\0', sizeof(buffer));
     recv(accept_ret, buffer, 50, 0);
     //printf("<%s>: buffer: %s\n", __func__, buffer);
     if(!(strcmp(buffer, "exit"))) {
-      /* Exit from the server program */
-      //exit(0);
       break;
+    } else if (!strcmp(buffer, valid_commands[0])) { 
+      printf("In PUT!\n");
+      Auth_Client_Connections(&accept_ret, &server_config);
+    } else if(!strcmp(buffer, valid_commands[1])) {
+      printf("In GET!\n");
+      Auth_Client_Connections(&accept_ret, &server_config);
+    } else if(!strcmp(buffer, valid_commands[2])) {
+      printf("In LIST\n");
+      Auth_Client_Connections(&accept_ret, &server_config);
     } else {
       printf("Invalid username sent!\n");
       break;
@@ -84,7 +91,7 @@ int main(int argc, char *argv[])
 
   close(server_socket);
 
-#ifdef TEST_SERVER_CONNECTIONS 
+#if 0
   char buffer[20];
   memset(buffer, '\0', sizeof(buffer));
   strcpy(buffer, "hello world");
