@@ -261,18 +261,26 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, void
 
   /* this loop runs for as many duplicate chunks that are require */
   for(i = 0; i<CHUNK_DUPLICATES; i++) {    
-   
+
     /* The below logic checks if the server is authenticated or not */
     if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
       continue;
 
     printf("Sending chunk - %d\n",\
-          (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1));
+        (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1));
     /* Send this data chunk to the correct server as per the schema */
     send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
-                data_chunk, strlen(data_chunk), 0); 
+        data_chunk, strlen(data_chunk), 0); 
   }
-
+  /* Send the username to the server */
+  /*send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+      client_data->username, strlen(client_data->username), 0);*/
+#if 0
+  uint8_t val = (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1);
+  /* Send the chunk number */
+  send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+      &val, sizeof(val), 0);
+#endif
   return;
 }
 
@@ -286,8 +294,6 @@ infra_return Auth_Client_Connections(int *return_accept_socket, server_config_da
   memset(buffer, '\0', sizeof(buffer));
 
   static uint8_t server_count = 0;
-
-  printf("HERE!! --> %s\n", __func__);
 
   recv(*return_accept_socket, buffer, 50, 0);
   infra_return ret_val = Validate_Login_Credentials(buffer, server_config, &server_count);
@@ -353,6 +359,7 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
       //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
       Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
+      getchar();
       return;
     } else {
       read_count = fread(chunk_storage, 1, packet_size, fp);
@@ -362,6 +369,7 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
     /* Send the chunk to its appropriate location */
     Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
     seq++;
+    getchar();
   }
 
   fclose(fp);
@@ -807,7 +815,7 @@ void Execute_List(client_config_data_t *client_data)
 
             /* Query through the name list to see if you find a match */
             for(int j = 0; j<MAX_DFS_SERVERS; j++) {
-              sprintf(file_prefix, ".%s%s", cache_put_filenames[file_count],\
+                sprintf(file_prefix, ".%s%s", cache_put_filenames[file_count],\
                   chunk_names[j]);
               if(!strcmp(dir->d_name, file_prefix)) {
                 /* If you find a match, just increment the counter for 
@@ -902,14 +910,48 @@ void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,
   memset(auth_server_list, 0, sizeof(auth_server_list));
   
   /* Iterate over all sockets and send the command to the server */
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
+  for (int i = 0; i < MAX_DFS_SERVERS; i++) 
     send(client_socket[i], command_name, strlen(command_name), 0);
-
+    
+  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
     /* Call the auth infra to authticate usernames and passwords */
     infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
   }
+
+  return;
+}
+
+void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
+{
+  char data_buffer[10000];
+  memset(data_buffer, '\0', sizeof(data_buffer));
+
+  char username_dir[40];
+  memset(username_dir, '\0', sizeof(username_dir));
+
+  int chunk_num = 0;
+
+  for(int i = 0; i<CHUNK_DUPLICATES; i++) {    
+    /* receive the chunk packet */
+    recv(*accept_ret, data_buffer, sizeof(data_buffer), 0); 
+    //printf("%s\n", data_buffer);
+  }
+  
+  /* receive the username */
+  //recv(*accept_ret, username_dir, sizeof(username_dir), 0); 
+  //printf("<%s>:username: %s\n", __func__, username_dir);
+  /* receive the chunk number */
+  //recv(*accept_ret, &chunk_num, sizeof(chunk_num), 0); 
+  //printf("%d\n", chunk_num);
+
+  /* Next store these chunks in the right directory */
+  //struct stat st = {0};
+  //char write_string[70];
+  //memset(write_string, '\0', sizeof(write_string));
+
+  
 
   return;
 }
