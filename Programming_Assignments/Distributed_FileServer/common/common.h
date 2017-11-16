@@ -196,6 +196,7 @@ infra_return start_command_infra(int *cntr, client_config_data_t *client_data)
   return VALID_RETURN;
 }
 
+#if 0
 void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
                           uint8_t chunk_seq, client_config_data_t *client_data)
 {
@@ -208,6 +209,7 @@ void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t 
   int i = 0;
   struct stat st = {0};
 
+  /* this loop runs for as many duplicate chunks that are require */
   for(i = 0; i<CHUNK_DUPLICATES; i++) {    
    
     /* The below logic checks if the server is authenticated or not */
@@ -237,6 +239,38 @@ void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t 
     //fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
     fwrite((char *)data_chunk, 1, chunk_size, fp);
     fclose(fp);
+  }
+
+  return;
+}
+#endif
+
+void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
+                          uint8_t chunk_seq, client_config_data_t *client_data)
+{
+
+  /* Do a preliminary check and open the file that has to be sent */
+  if(data_chunk == NULL) {
+    return;
+  }
+  
+  FILE *fp = NULL;
+  char write_string[70];
+  int i = 0;
+  struct stat st = {0};
+
+  /* this loop runs for as many duplicate chunks that are require */
+  for(i = 0; i<CHUNK_DUPLICATES; i++) {    
+   
+    /* The below logic checks if the server is authenticated or not */
+    if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
+      continue;
+
+    printf("Sending chunk - %d\n",\
+          (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1));
+    /* Send this data chunk to the correct server as per the schema */
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+                data_chunk, strlen(data_chunk), 0); 
   }
 
   return;
@@ -280,7 +314,8 @@ infra_return Accept_Auth_Client_Connections(int *return_accept_socket, int serve
   return return_value;
 }
 
-void Chunk_Store_File(void *filename, uint8_t hash_mod_value, client_config_data_t *client_data)
+void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value,\
+                          client_config_data_t *client_data)
 {
   FILE *fp = fopen(filename, "rb");
   if(fp == NULL) {
@@ -317,7 +352,7 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, client_config_data
       read_count = fread(chunk_storage, 1, (packet_size + (file_size%4)), fp);
       //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
-      Send_Chunk(filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
+      Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
       return;
     } else {
       read_count = fread(chunk_storage, 1, packet_size, fp);
@@ -325,7 +360,7 @@ void Chunk_Store_File(void *filename, uint8_t hash_mod_value, client_config_data
     } 
 
     /* Send the chunk to its appropriate location */
-    Send_Chunk(filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
+    Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
     seq++;
   }
 
@@ -410,7 +445,8 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
     printf("file %s can't be opened!\n", (char *)filename);
     return 0;
   }
-  
+
+  /* Initialize the openssl MD5 structs */
   MD5_CTX md5context;
   int bytes = 0;
   unsigned char data[1024];
@@ -419,10 +455,12 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
   unsigned int digest_buffer[MD5_DIGEST_LENGTH];
   memset(&digest_buffer, 0, sizeof(digest_buffer));
 
+  /* Initialize the MD5 and for every 1027 bytes, update the MD5 digest */
   MD5_Init(&md5context);
   while((bytes = fread(data, 1, 1024, fp)) != 0)
     MD5_Update(&md5context, data, bytes);
 
+  /* Create a 128bit MD5 number and store in ret_digest array */
   MD5_Final(ret_digest, &md5context);
  
   char temp_store[5];
@@ -430,6 +468,10 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
   uint32_t hash_hex_value = 0;
   uint8_t temp = 0;
 
+  /* Iterate over the 16B for the MD5 digest and convert to a long num.
+   * next, shift the byte into a 32bit number 
+   * At, the end, we return the mod 4 value of this 32bit number 
+   */
   for(int i = 0; i<MD5_DIGEST_LENGTH; i++) {
     
     sprintf(temp_store, "%x", ret_digest[i]);
@@ -697,8 +739,8 @@ void Parse_Client_Config_File(void *filename, client_config_data_t *config)
   return;
 }
 
-#if 0
-void Execute_Put_File(void *filename, client_config_data_t *client_data)
+#if 1
+void Execute_Put_File(uint8_t *sock_list, void *filename, client_config_data_t *client_data)
 {
   /* Get the hash of the file */
   unsigned char digest_buffer[MD5_DIGEST_LENGTH];
@@ -709,8 +751,8 @@ void Execute_Put_File(void *filename, client_config_data_t *client_data)
   printf("filename: %s\n", cache_put_filenames[put_file_count-1]);
 
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
-  
-  Chunk_Store_File(filename, hash_mod_val, client_data);
+  printf("<<%s>>: hash_mod_val: %d\n", __func__, hash_mod_val);
+  Chunk_Store_File(sock_list, filename, hash_mod_val, client_data);
  
   return;
 }

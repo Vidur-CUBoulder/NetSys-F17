@@ -63,6 +63,10 @@ int main(int argc, char *argv[])
   infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
       &address, addr_len, &server_config );
 
+
+  char data_buffer[10000];
+  memset(data_buffer, '\0', sizeof(data_buffer));
+
 #if 1
   while(1) {
 
@@ -75,6 +79,15 @@ int main(int argc, char *argv[])
     } else if (!strcmp(buffer, valid_commands[0])) { 
       printf("In PUT!\n");
       Auth_Client_Connections(&accept_ret, &server_config);
+      
+      for(int i = 0; i<CHUNK_DUPLICATES; i++) {    
+        printf("\npacket: %d\n", i);
+        recv(accept_ret, data_buffer, sizeof(data_buffer), 0); 
+        printf("%s\n", data_buffer);
+      }
+   
+      /* Next store these chunks in the right directory */
+    
     } else if(!strcmp(buffer, valid_commands[1])) {
       printf("In GET!\n");
       Auth_Client_Connections(&accept_ret, &server_config);

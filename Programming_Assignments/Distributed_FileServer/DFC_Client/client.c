@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
       /* Put the file into the DFS under the 'username' dir. */
       /* Authenticate with all the servers first */
       Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
-      //Execute_Put_File(global_client_buffer[1], &client_data);
+      Execute_Put_File(client_socket, global_client_buffer[1], &client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
       printf("In GET!\n");
