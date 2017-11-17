@@ -1,5 +1,19 @@
 #include "../common/common.h"
 
+int global_sig_server_socket = 0;
+
+void sig_handler(int signo)
+{
+  if(signo == SIGINT) {
+    printf("In <%s>\n", __func__);
+    printf("closing the socket: %d\n", global_sig_server_socket);
+    close(global_sig_server_socket);
+  }
+  
+  exit(0);
+}
+
+
 int main(int argc, char *argv[])
 {
   switch(argc)
@@ -44,13 +58,15 @@ int main(int argc, char *argv[])
     perror("ERROR:socket()\n");
     return 0;
   }*/
-
+  
   struct sockaddr_in address;
   memset(&address, 0, sizeof(address));
 
   /* Setup the webserver connections */
   Create_Server_Connections(&server_socket, &address,\
       sizeof(address), port_num);
+
+  global_sig_server_socket = server_socket;
 
   socklen_t addr_len = sizeof(address);
   int accept_ret = 0;
@@ -64,8 +80,10 @@ int main(int argc, char *argv[])
       &address, addr_len, &server_config );
 
   infra_return ret_val = 0;
+  
+  /* Signal registration */
+  signal(SIGINT, sig_handler);
 
-#if 1
   while(1) {
 
     /* Get the data from the client and verify username and pass */
@@ -76,11 +94,11 @@ int main(int argc, char *argv[])
     if(!(strcmp(buffer, "exit"))) {
       break;
     } else if (!strcmp(buffer, valid_commands[0])) { 
-      //printf("In PUT!\n");
+      printf("In PUT! - server\n");
       ret_val = Auth_Client_Connections(&accept_ret, &server_config);
       if(ret_val == AUTH_FAILURE)
         continue;
-      Execute_Put_Server(&accept_ret, &server_config);
+      //Execute_Put_Server(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[1])) {
       printf("In GET!\n");
       Auth_Client_Connections(&accept_ret, &server_config);
@@ -91,7 +109,6 @@ int main(int argc, char *argv[])
       printf("Invalid username sent!\n");
       break;
     }
-#endif
   
   }
 

@@ -17,6 +17,7 @@
 #include<limits.h>
 #include<sys/stat.h>
 #include<dirent.h>
+#include<signal.h>
 
 #define TCP_SOCKETS SOCK_STREAM
 
@@ -122,8 +123,11 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   strncat(buffer, client_data->username, strlen(client_data->username));
   strncat(buffer, " ", strlen(" "));
   strncat(buffer, client_data->password, strlen(client_data->password)); 
-
-  int send_ret = send(client_socket, buffer, strlen(buffer), 0);
+  
+  printf("Here... first send... <<%s>>\n", __func__);
+  //int send_ret = send(client_socket, buffer, strlen(buffer), 0);
+  int send_ret = send(client_socket, buffer, strlen(buffer), MSG_NOSIGNAL);
+  printf("send_ret: %d\n", send_ret);
   if(send_ret < 0) {
     perror("SEND");
     return AUTH_FAILURE;
@@ -131,8 +135,16 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   
   /* Receive pass/fail status from server */
   memset(buffer, '\0', sizeof(buffer));
-  recv(client_socket, buffer, 50, 0);
+  int recv_ret = recv(client_socket, buffer, 50, 0);
+  if(recv_ret < 0) {
+    perror("");
+    printf("socket_num: %d\n", client_socket);
+    return AUTH_FAILURE;
+  }
   //printf("<%s>:buffer: %s\n", __func__, buffer);
+  printf("buffer:%s\nwaiting......\n", buffer);
+  getchar();
+
  
   if(!strcmp(buffer, "fail")) { /* Auth Failed! */
     /* Don't close connection, just decline and exit */
@@ -319,12 +331,20 @@ infra_return Auth_Client_Connections(int *return_accept_socket, server_config_da
   static uint8_t server_count = 0;
 
   recv(*return_accept_socket, buffer, 50, 0);
-  infra_return ret_val = Validate_Login_Credentials(buffer, server_config, &server_count);
+  printf("auth_data: %s\n", buffer);
+
+  infra_return ret_val = Validate_Login_Credentials(buffer, server_config,\
+                                                        &server_count);
+  //printf("Send pass/fail to client; waiting.......\n");
+  ///getchar();
+  
   if(ret_val == AUTH_FAILURE) {
     printf("Authentication failed!; Disconnecting Server!\n");
+    getchar();
     send(*return_accept_socket, "fail", strlen("fail"), 0);
     return AUTH_FAILURE; 
   }
+  
   
   send(*return_accept_socket, "pass", strlen("pass"), 0);
 
@@ -931,16 +951,27 @@ void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,
 {
   /* Clear the autheticate server list buffer */
   memset(auth_server_list, 0, sizeof(auth_server_list));
-  
+ 
+  int send_ret_val = 0;
   /* Iterate over all sockets and send the command to the server */
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) 
-    send(client_socket[i], command_name, strlen(command_name), 0);
-    
+  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
+    send_ret_val = send(client_socket[i], command_name, strlen(command_name), 0);
+    if(send_ret_val < 0) {
+      printf("<<%s>>: Send Error!!\n",__func__);
+      perror("");
+      continue;
+    }
+    getchar();
+  }
+
   for (int i = 0; i < MAX_DFS_SERVERS; i++) {
     /* Call the auth infra to authticate usernames and passwords */
+    printf("Loop: %d\n", i);
     infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
+    else
+      continue;
   }
 
   return;
