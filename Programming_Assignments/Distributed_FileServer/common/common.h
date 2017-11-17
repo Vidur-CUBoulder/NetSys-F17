@@ -245,8 +245,9 @@ void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t 
 }
 #endif
 
-void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
-                          uint8_t chunk_seq, client_config_data_t *client_data)
+void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
+                  void *data_chunk,size_t chunk_size,\
+                  uint8_t chunk_seq, client_config_data_t *client_data)
 {
 
   /* Do a preliminary check and open the file that has to be sent */
@@ -268,19 +269,21 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, void
 
     printf("Sending chunk - %d\n",\
         (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1));
+    
+    /* Send the size of the chunk first */
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+           &chunk_size, sizeof(size_t), 0);
+
     /* Send this data chunk to the correct server as per the schema */
     send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
-        data_chunk, strlen(data_chunk), 0); 
+        data_chunk, chunk_size, 0); 
+
+    /* Next send the chunk number as well */
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+          &chunk_seq, sizeof(uint8_t), 0);
+  
   }
-  /* Send the username to the server */
-  /*send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
-      client_data->username, strlen(client_data->username), 0);*/
-#if 0
-  uint8_t val = (Distribution_Schema[hash_mod_value][chunk_seq][i] - 1);
-  /* Send the chunk number */
-  send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
-      &val, sizeof(val), 0);
-#endif
+  
   return;
 }
 
@@ -359,7 +362,6 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
       //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
       Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
-      getchar();
       return;
     } else {
       read_count = fread(chunk_storage, 1, packet_size, fp);
@@ -369,7 +371,6 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
     /* Send the chunk to its appropriate location */
     Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
     seq++;
-    getchar();
   }
 
   fclose(fp);
@@ -518,6 +519,9 @@ void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
   return;
 }
 
+static uint8_t username_cntr = 0;
+static uint8_t password_cntr = 0;
+
 void Parse_Server_Config_File(void *filename, server_config_data_t *config)
 {
   size_t read_line = 0;
@@ -525,9 +529,6 @@ void Parse_Server_Config_File(void *filename, server_config_data_t *config)
   FILE *fp_config_file = NULL;
   char *buffer = NULL;
   uint8_t cntr = 0;
-
-  static uint8_t username_cntr = 0;
-  static uint8_t password_cntr = 0;
 
   fp_config_file = fopen((char *)filename, "rb");
   if(fp_config_file == NULL) {
@@ -747,7 +748,6 @@ void Parse_Client_Config_File(void *filename, client_config_data_t *config)
   return;
 }
 
-#if 1
 void Execute_Put_File(uint8_t *sock_list, void *filename, client_config_data_t *client_data)
 {
   /* Get the hash of the file */
@@ -761,10 +761,9 @@ void Execute_Put_File(uint8_t *sock_list, void *filename, client_config_data_t *
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
   printf("<<%s>>: hash_mod_val: %d\n", __func__, hash_mod_val);
   Chunk_Store_File(sock_list, filename, hash_mod_val, client_data);
- 
+  
   return;
 }
-#endif
 
 void Execute_List(client_config_data_t *client_data)
 {
@@ -928,30 +927,26 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
   char data_buffer[10000];
   memset(data_buffer, '\0', sizeof(data_buffer));
 
-  char username_dir[40];
-  memset(username_dir, '\0', sizeof(username_dir));
-
-  int chunk_num = 0;
+  uint8_t chunk_seq_num = 0;
+  size_t chunk_size = 0;
 
   for(int i = 0; i<CHUNK_DUPLICATES; i++) {    
+    /* Get the size of the chunk */
+    recv(*accept_ret, &chunk_size, sizeof(size_t), 0);
+    
     /* receive the chunk packet */
-    recv(*accept_ret, data_buffer, sizeof(data_buffer), 0); 
+    recv(*accept_ret, data_buffer, chunk_size, 0); 
+
+    /* receive the chunk seq number as well */
+    recv(*accept_ret, &chunk_seq_num, sizeof(uint8_t), 0);
+   
+#ifdef DEBUG_ALL
+    printf("chunk_size: %lu\n", chunk_size);
     //printf("%s\n", data_buffer);
+    printf("chunk_seq_num: %d\n", chunk_seq_num);
+#endif
+
   }
-  
-  /* receive the username */
-  //recv(*accept_ret, username_dir, sizeof(username_dir), 0); 
-  //printf("<%s>:username: %s\n", __func__, username_dir);
-  /* receive the chunk number */
-  //recv(*accept_ret, &chunk_num, sizeof(chunk_num), 0); 
-  //printf("%d\n", chunk_num);
-
-  /* Next store these chunks in the right directory */
-  //struct stat st = {0};
-  //char write_string[70];
-  //memset(write_string, '\0', sizeof(write_string));
-
-  
 
   return;
 }

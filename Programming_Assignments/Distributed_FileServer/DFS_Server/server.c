@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
   while(1) {
 
     /* Get the data from the client and verify username and pass */
+    printf("waiting for the next command!!\n");
     memset(buffer, '\0', sizeof(buffer));
     recv(accept_ret, buffer, 50, 0);
     printf("<%s>: buffer: %s\n", __func__, buffer);
