@@ -258,10 +258,13 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
   FILE *fp = NULL;
   char write_string[70];
   int i = 0;
-  struct stat st = {0};
+  char sync_command[5];
+  memset(sync_command, '\0', sizeof(sync_command));
 
   /* this loop runs for as many duplicate chunks that are require */
   for(i = 0; i<CHUNK_DUPLICATES; i++) {    
+  
+    memset(sync_command, '\0', sizeof(sync_command));
 
     /* The below logic checks if the server is authenticated or not */
     if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
@@ -281,6 +284,23 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
     /* Next send the chunk number as well */
     send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
           &chunk_seq, sizeof(uint8_t), 0);
+ 
+    /* Send the server number as well */
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+          &Distribution_Schema[hash_mod_value][chunk_seq][i], sizeof(uint8_t), 0);
+
+    /* Send the name of the file as well */
+    size_t file_name_len = strlen(client_data->filename);
+    printf("file_name_len: %lu\n", file_name_len);
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+        &file_name_len, sizeof(size_t), 0); 
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+        client_data->filename, file_name_len, 0);
+  
+    /* To avoid any sync. issues, wait for a message */
+    recv(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+            sync_command, sizeof(sync_command), 0);
+    printf("continue-ing...\n");
   
   }
   
@@ -760,6 +780,10 @@ void Execute_Put_File(uint8_t *sock_list, void *filename, client_config_data_t *
 
   uint8_t hash_mod_val = Generate_MD5_Hash(filename, digest_buffer); 
   printf("<<%s>>: hash_mod_val: %d\n", __func__, hash_mod_val);
+  
+  /* Send the filename */
+  printf("filename:%s\n", client_data->filename); 
+  
   Chunk_Store_File(sock_list, filename, hash_mod_val, client_data);
   
   return;
@@ -927,8 +951,18 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
   char data_buffer[10000];
   memset(data_buffer, '\0', sizeof(data_buffer));
 
+  char write_string[70];
+  memset(write_string, '\0', sizeof(write_string));
+
+  size_t filename_len = 0;
+  char filename[20];
+  memset(filename, '\0', sizeof(filename));
+  
+  struct stat st = {0};
   uint8_t chunk_seq_num = 0;
+  uint8_t server_num = 0;
   size_t chunk_size = 0;
+
 
   for(int i = 0; i<CHUNK_DUPLICATES; i++) {    
     /* Get the size of the chunk */
@@ -939,8 +973,43 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
 
     /* receive the chunk seq number as well */
     recv(*accept_ret, &chunk_seq_num, sizeof(uint8_t), 0);
-   
+  
+    /* receive the dfs server num */
+    recv(*accept_ret, &server_num, sizeof(uint8_t), 0);
+  
+    /* receive the name of the file */
+    recv(*accept_ret, &filename_len, sizeof(size_t), 0); 
+    recv(*accept_ret, filename, filename_len, 0);
+
+    sprintf(write_string, "./DFS%d/%s/", server_num, server_config->username[0]);
+    /* check if a dir for the user exists or not */
+    if(stat(write_string, &st) == -1) {
+      printf("%s directory does not exist, create now!\n", server_config->username[0]);
+      int ret_val = mkdir(write_string, 0777);
+      if(ret_val < 0) {
+        perror("");
+        return;
+      }
+    }
+    
+    /* Create the file and write the contents to it */ 
+    sprintf(write_string, "./DFS%d/%s/.%s.chunk_%d", server_num,\
+        server_config->username[0], filename, chunk_seq_num);
+    
+    FILE *fp = NULL;
+    fp = fopen(write_string, "wb");
+    if(fp == NULL) {
+      printf("<%s>: Unable to open the file!\n", __func__);
+      return;
+    }
+
+    fwrite(data_buffer, 1, chunk_size, fp);
+    fclose(fp);
+
+    send(*accept_ret, "cont", strlen("cont"), 0); 
+
 #ifdef DEBUG_ALL
+    printf("server_num: %d\n", server_num);
     printf("chunk_size: %lu\n", chunk_size);
     //printf("%s\n", data_buffer);
     printf("chunk_seq_num: %d\n", chunk_seq_num);
