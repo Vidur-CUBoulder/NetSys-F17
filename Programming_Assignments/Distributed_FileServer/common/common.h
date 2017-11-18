@@ -123,7 +123,7 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   strncat(buffer, " ", strlen(" "));
   strncat(buffer, client_data->password, strlen(client_data->password)); 
 
-  int send_ret = send(client_socket, buffer, strlen(buffer), 0);
+  int send_ret = send(client_socket, buffer, strlen(buffer), MSG_NOSIGNAL);
   if(send_ret < 0) {
     perror("SEND");
     return AUTH_FAILURE;
@@ -300,8 +300,6 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
     /* To avoid any sync. issues, wait for a message */
     recv(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
             sync_command, sizeof(sync_command), 0);
-    printf("continue-ing...\n");
-  
   }
   
   return;
@@ -379,7 +377,6 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
     if(seq == (MAX_DFS_SERVERS-1)) {
       printf("Last packet NOW!\n");
       read_count = fread(chunk_storage, 1, (packet_size + (file_size%4)), fp);
-      //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
       Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
       return;
@@ -518,7 +515,7 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
 }
 
 
-void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
+void Create_Client_Connections(int8_t *client_socket, uint16_t port_number,\
                                  struct sockaddr_in *server_addr, size_t server_addr_len)
 {
   *client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -604,6 +601,12 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   }
 
   (*server_sock) = socket(AF_INET, TCP_SOCKETS, 0);
+
+  /* enable socket re-use */
+  int enable = 1;
+  if(setsockopt((*server_sock), SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    perror("setsockopt(SO_REUSEADDR) failed!!\n");
+
 
   /* set the parameters for the server */
   server_addr->sin_family = AF_INET;
@@ -925,22 +928,21 @@ void Get_File_From_Servers(client_config_data_t *client_data)
   return;
 }
 #endif    
-    
-void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,\
-              client_config_data_t *client_data)
+
+
+void Authenticate_Client_Connections(int8_t *client_socket,\
+                client_config_data_t *client_data, struct sockaddr_in *server_addr)
 {
-  /* Clear the autheticate server list buffer */
-  memset(auth_server_list, 0, sizeof(auth_server_list));
   
-  /* Iterate over all sockets and send the command to the server */
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) 
-    send(client_socket[i], command_name, strlen(command_name), 0);
-    
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
-    /* Call the auth infra to authticate usernames and passwords */
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    Create_Client_Connections(&client_socket[i], client_data->client_ports.port_num[i],\
+        &server_addr[i], sizeof(server_addr[i])); 
     infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
+
+    send(client_socket[i], global_client_buffer[0], strlen(global_client_buffer[0]), MSG_NOSIGNAL);
+
   }
 
   return;
