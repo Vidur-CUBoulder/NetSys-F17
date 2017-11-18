@@ -999,7 +999,7 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
     recv(*accept_ret, filename, filename_len, 0);
     
     /* Store filename */
-    memcpy(server_config->filename[0], filename, strlen(filename));
+    memcpy(server_config->filename[put_file_count++], filename, strlen(filename));
 
     sprintf(write_string, "./DFS%d/%s/", server_num, server_config->username[0]);
     /* check if a dir for the user exists or not */
@@ -1059,35 +1059,43 @@ void Execute_List_Server(int *accept_ret, char *server_name,\
 
   char temp_d_name[30];
   memset(temp_d_name, '\0', sizeof(temp_d_name));
-  
+ 
   char removal_string[30];
-  memset(removal_string, '\0', sizeof(removal_string));
   
-  sprintf(removal_string, ".%s.", server_config->filename[0]);
-  printf("removal_string: %s\n", removal_string);
+  for (int file_count = 0; file_count<put_file_count; file_count++) {
+    
+    /* Send the name of the file */
+    
+    memset(removal_string, '\0', sizeof(removal_string));
 
-  sprintf(path_string, "./%s/%s", server_name, server_config->username[0]);
+    sprintf(removal_string, ".%s.", server_config->filename[file_count]);
+    printf("removal_string: %s\n", removal_string);
 
-  directory = opendir(path_string);
-  if(directory) {
-    while((dir = readdir(directory)) != NULL) {
+    sprintf(path_string, "./%s/%s", server_name, server_config->username[0]);
 
-      /* Discard these 2 cases! */
-      if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
-        continue;
-      
-      memset(temp_d_name, '\0', sizeof(temp_d_name));
-      memcpy(temp_d_name, dir->d_name, strlen(dir->d_name));
-      //printf("%s\n", temp_d_name);
-  
-      removeSubstring(temp_d_name, removal_string);
-      printf("Post Removal: %s\n", temp_d_name);
-     
-      /* Send this over to the client for it to parse */
-      int send_ret = send(*accept_ret, temp_d_name, strlen(temp_d_name), MSG_NOSIGNAL);
-      if(send_ret < 0) {
-        perror("");
-        return;
+    directory = opendir(path_string);
+    if(directory) {
+      while((dir = readdir(directory)) != NULL) {
+
+        /* Discard these 2 cases! */
+        if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+          continue;
+
+        memset(temp_d_name, '\0', sizeof(temp_d_name));
+        memcpy(temp_d_name, dir->d_name, strlen(dir->d_name));
+        //printf("%s\n", temp_d_name);
+
+        removeSubstring(temp_d_name, removal_string);
+        printf("Post Removal: %s\n", temp_d_name);
+
+        if(temp_d_name[0] != '.') {
+          /* Send this over to the client for it to parse */
+          int send_ret = send(*accept_ret, temp_d_name, strlen(temp_d_name), MSG_NOSIGNAL);
+          if(send_ret < 0) {
+            perror("");
+            return;
+          }
+        }
       }
     }
   }
@@ -1108,41 +1116,48 @@ void Execute_List_Client(int8_t *client_socket, client_config_data_t *client_dat
   
   uint8_t local_file_lookup[MAX_DFS_SERVERS][MAX_DFS_SERVERS];
   memset(local_file_lookup, 0, sizeof(local_file_lookup));
-  
-  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
-    
-    for(int i = 0 ; i<2; i++) {
-      memset(chunk_buffer, '\0', sizeof(chunk_buffer));
-      recv_ret = recv(client_socket[j], chunk_buffer, 7, 0);
-      if(recv_ret < 0) {
-        perror("");
-        return;
-      }
-      printf("%s\n", chunk_buffer);
 
-      for(int k = 0; k<MAX_DFS_SERVERS; k++) {
-        if(!strcmp(chunk_buffer, chunk_names[k])) {
-          local_file_lookup[j][k]++;
-          chunk_checklist[k]++;
+  for(int file_count = 0; file_count<put_file_count; file_count++) {
+    memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+    memset(chunk_checklist, 0, sizeof(chunk_checklist));
+    memset(local_file_lookup, 0, sizeof(local_file_lookup));
+
+    for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+
+      for(int i = 0 ; i<2; i++) {
+        memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+        recv_ret = recv(client_socket[j], chunk_buffer, 7, 0);
+        if(recv_ret < 0) {
+          perror("");
+          return;
         }
-      } 
+        printf("%s\n", chunk_buffer);
+
+        for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+          if(!strcmp(chunk_buffer, chunk_names[k])) {
+            local_file_lookup[j][k]++;
+            chunk_checklist[k]++;
+          }
+        } 
+      }
     }
-  }
+
 #if 1 
-  printf("Chunk Storage -->\n");
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    for(int k = 0; k<MAX_DFS_SERVERS; k++) {
-      printf("%d ", local_file_lookup[i][k]);
+    printf("Chunk Storage -->\n");
+    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+      for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+        printf("%d ", local_file_lookup[i][k]);
+      }
+      printf("\n");
     }
-    printf("\n");
-  }
 #endif
-  
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    if(chunk_checklist[i] < 1) {
-      printf("%s incomplete!\n", chunk_names[i]);
-    } else {
-      printf("%s\n", chunk_names[i]);
+
+    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+      if(chunk_checklist[i] < 1) {
+        printf("%s incomplete!\n", chunk_names[i]);
+      } else {
+        printf("%s\n", chunk_names[i]);
+      }
     }
   }
 
