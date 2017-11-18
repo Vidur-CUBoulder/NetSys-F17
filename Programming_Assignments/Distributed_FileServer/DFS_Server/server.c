@@ -1,19 +1,5 @@
 #include "../common/common.h"
 
-int global_sig_server_socket = 0;
-
-void sig_handler(int signo)
-{
-  if(signo == SIGINT) {
-    printf("In <%s>\n", __func__);
-    printf("closing the socket: %d\n", global_sig_server_socket);
-    close(global_sig_server_socket);
-  }
-  
-  exit(0);
-}
-
-
 int main(int argc, char *argv[])
 {
   switch(argc)
@@ -58,15 +44,13 @@ int main(int argc, char *argv[])
     perror("ERROR:socket()\n");
     return 0;
   }*/
-  
+
   struct sockaddr_in address;
   memset(&address, 0, sizeof(address));
 
   /* Setup the webserver connections */
-  Create_Server_Connections(&server_socket, &address,\
-      sizeof(address), port_num);
-
-  global_sig_server_socket = server_socket;
+  /*Create_Server_Connections(&server_socket, &address,\
+      sizeof(address), port_num);*/
 
   socklen_t addr_len = sizeof(address);
   int accept_ret = 0;
@@ -76,29 +60,43 @@ int main(int argc, char *argv[])
 
   static int server_counter = 0;
 
-  infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
-      &address, addr_len, &server_config );
+  //accept(server_socket, (struct sockaddr *)&address, &addr_len);
+  /*infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
+      &address, addr_len, &server_config );*/
 
   infra_return ret_val = 0;
-  
-  /* Signal registration */
-  signal(SIGINT, sig_handler);
 
+#if 1
   while(1) {
 
+    Create_Server_Connections(&server_socket, &address,\
+      sizeof(address), port_num);
+    
+    //accept(server_socket, (struct sockaddr *)&address, &addr_len);
+    infra_return r_val = Accept_Auth_Client_Connections(&accept_ret, server_socket,\
+        &address, addr_len, &server_config );
+    
     /* Get the data from the client and verify username and pass */
     printf("waiting for the next command!!\n");
     memset(buffer, '\0', sizeof(buffer));
-    recv(accept_ret, buffer, 50, 0);
+    int recv_ret = recv(accept_ret, buffer, 50, 0);
+    if(recv_ret < 0) {
+      perror("");
+      return 0;
+    }
     printf("<%s>: buffer: %s\n", __func__, buffer);
+   
     if(!(strcmp(buffer, "exit"))) {
       break;
     } else if (!strcmp(buffer, valid_commands[0])) { 
-      printf("In PUT! - server\n");
-      ret_val = Auth_Client_Connections(&accept_ret, &server_config);
+      //printf("In PUT!\n");
+      //ret_val = Auth_Client_Connections(&accept_ret, &server_config);
       if(ret_val == AUTH_FAILURE)
         continue;
-      //Execute_Put_Server(&accept_ret, &server_config);
+      Execute_Put_Server(&accept_ret, &server_config);
+      printf("closing the socket now!!\n");
+      shutdown(accept_ret, SHUT_RDWR);  
+      close(accept_ret);
     } else if(!strcmp(buffer, valid_commands[1])) {
       printf("In GET!\n");
       Auth_Client_Connections(&accept_ret, &server_config);
@@ -109,6 +107,9 @@ int main(int argc, char *argv[])
       printf("Invalid username sent!\n");
       break;
     }
+#endif
+  
+    close(server_socket);
   
   }
 

@@ -17,7 +17,6 @@
 #include<limits.h>
 #include<sys/stat.h>
 #include<dirent.h>
-#include<signal.h>
 
 #define TCP_SOCKETS SOCK_STREAM
 
@@ -123,11 +122,8 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   strncat(buffer, client_data->username, strlen(client_data->username));
   strncat(buffer, " ", strlen(" "));
   strncat(buffer, client_data->password, strlen(client_data->password)); 
-  
-  printf("Here... first send... <<%s>>\n", __func__);
-  //int send_ret = send(client_socket, buffer, strlen(buffer), 0);
+
   int send_ret = send(client_socket, buffer, strlen(buffer), MSG_NOSIGNAL);
-  printf("send_ret: %d\n", send_ret);
   if(send_ret < 0) {
     perror("SEND");
     return AUTH_FAILURE;
@@ -135,16 +131,8 @@ infra_return Send_Auth_Client_Login(int client_socket, client_config_data_t *cli
   
   /* Receive pass/fail status from server */
   memset(buffer, '\0', sizeof(buffer));
-  int recv_ret = recv(client_socket, buffer, 50, 0);
-  if(recv_ret < 0) {
-    perror("");
-    printf("socket_num: %d\n", client_socket);
-    return AUTH_FAILURE;
-  }
+  recv(client_socket, buffer, 50, 0);
   //printf("<%s>:buffer: %s\n", __func__, buffer);
-  printf("buffer:%s\nwaiting......\n", buffer);
-  getchar();
-
  
   if(!strcmp(buffer, "fail")) { /* Auth Failed! */
     /* Don't close connection, just decline and exit */
@@ -331,20 +319,12 @@ infra_return Auth_Client_Connections(int *return_accept_socket, server_config_da
   static uint8_t server_count = 0;
 
   recv(*return_accept_socket, buffer, 50, 0);
-  printf("auth_data: %s\n", buffer);
-
-  infra_return ret_val = Validate_Login_Credentials(buffer, server_config,\
-                                                        &server_count);
-  //printf("Send pass/fail to client; waiting.......\n");
-  ///getchar();
-  
+  infra_return ret_val = Validate_Login_Credentials(buffer, server_config, &server_count);
   if(ret_val == AUTH_FAILURE) {
     printf("Authentication failed!; Disconnecting Server!\n");
-    getchar();
     send(*return_accept_socket, "fail", strlen("fail"), 0);
     return AUTH_FAILURE; 
   }
-  
   
   send(*return_accept_socket, "pass", strlen("pass"), 0);
 
@@ -538,7 +518,7 @@ uint8_t Generate_MD5_Hash(void *filename, unsigned char *ret_digest)
 }
 
 
-void Create_Client_Connections(uint8_t *client_socket, uint16_t port_number,\
+void Create_Client_Connections(int8_t *client_socket, uint16_t port_number,\
                                  struct sockaddr_in *server_addr, size_t server_addr_len)
 {
   *client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -624,6 +604,12 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   }
 
   (*server_sock) = socket(AF_INET, TCP_SOCKETS, 0);
+
+  /* enable socket re-use */
+  int enable = 1;
+  if(setsockopt((*server_sock), SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    perror("setsockopt(SO_REUSEADDR) failed!!\n");
+
 
   /* set the parameters for the server */
   server_addr->sin_family = AF_INET;
@@ -945,37 +931,51 @@ void Get_File_From_Servers(client_config_data_t *client_data)
   return;
 }
 #endif    
-    
+
+
+void Authenticate_Client_Connections(int8_t *client_socket,\
+                client_config_data_t *client_data, struct sockaddr_in *server_addr)
+{
+  
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    Create_Client_Connections(&client_socket[i], client_data->client_ports.port_num[i],\
+        &server_addr[i], sizeof(server_addr[i])); 
+    //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
+    infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
+    if(ret == AUTH_SUCCESS)
+      auth_server_list[i]++;
+
+    send(client_socket[i], global_client_buffer[0], strlen(global_client_buffer[0]), MSG_NOSIGNAL);
+
+  }
+
+  return;
+}
+
+#if 0
 void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,\
               client_config_data_t *client_data)
 {
   /* Clear the autheticate server list buffer */
   memset(auth_server_list, 0, sizeof(auth_server_list));
- 
-  int send_ret_val = 0;
+  
   /* Iterate over all sockets and send the command to the server */
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
-    send_ret_val = send(client_socket[i], command_name, strlen(command_name), 0);
-    if(send_ret_val < 0) {
-      printf("<<%s>>: Send Error!!\n",__func__);
-      perror("");
-      continue;
-    }
-    getchar();
-  }
+  for (int i = 0; i < MAX_DFS_SERVERS; i++) 
+    send(client_socket[i], command_name, strlen(command_name), 0);
+   
+  printf("waiting...\n");
+  getchar();
 
   for (int i = 0; i < MAX_DFS_SERVERS; i++) {
     /* Call the auth infra to authticate usernames and passwords */
-    printf("Loop: %d\n", i);
     infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
-    else
-      continue;
   }
 
   return;
 }
+#endif
 
 void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
 {

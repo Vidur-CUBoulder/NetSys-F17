@@ -17,12 +17,13 @@ int main(int argc, char *argv[])
 #endif
 
   /* Make a connection to the 4 servers */
-  uint8_t client_socket[MAX_DFS_SERVERS];
+  int8_t client_socket[MAX_DFS_SERVERS];
   memset(client_socket, '\0', sizeof(client_socket));
 
   struct sockaddr_in server_addr[MAX_DFS_SERVERS];
   memset(&server_addr, 0, sizeof(server_addr));
-    
+
+#if 0
   for(int i = 0; i<MAX_DFS_SERVERS; i++) {
     Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
         &server_addr[i], sizeof(server_addr[i])); 
@@ -47,37 +48,55 @@ int main(int argc, char *argv[])
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
   }
-
+#endif
 
   int cntr = 0;
   while(1) {
     
     /* Start a command line interface */
     start_command_infra(&cntr, &client_data);
+
+#if 0 
+    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+      Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
+          &server_addr[i], sizeof(server_addr[i])); 
+      //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
+      infra_return ret = Send_Auth_Client_Login(client_socket[i], &client_data);
+      if(ret == AUTH_SUCCESS)
+        auth_server_list[i]++;
+      
+      send(client_socket[i], global_client_buffer[0], strlen(global_client_buffer[0]), 0);
+      
+      getchar();
+    
+    }
+#endif
+    
+    
+    //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
     
     if(!strcmp(global_client_buffer[0], valid_commands[3])) {
       /* Exit from the program, gracefully please! */
+      Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
       for(int i = 0; i<MAX_DFS_SERVERS; i++)
-        send(client_socket[i], "exit", strlen("exit"), 0);
+        send(client_socket[i], "exit", strlen("exit"), MSG_NOSIGNAL);
       break;
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
       /* Put the file into the DFS under the 'username' dir. */
       /* Authenticate with all the servers first */
-      printf("In PUT! - client\n");
-      getchar();
-      Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
-      printf("Exiting auth NOW!!\n");
-      getchar();
-      //Execute_Put_File(client_socket, global_client_buffer[1], &client_data);
+      
+      Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
+      Execute_Put_File(client_socket, global_client_buffer[1], &client_data);
+    
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
       printf("In GET!\n");
-      Authenticate_Client_Connections(valid_commands[1], client_socket, &client_data); 
+      //Authenticate_Client_Connections(valid_commands[1], client_socket, &client_data); 
       //Get_File_From_Servers(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
       //Authenticate_Client_Connections(valid_commands[2], client_socket, &client_data); 
-      Execute_List(&client_data);
+      //Execute_List(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
       /* Clear the CLI */
       system("clear");
@@ -85,6 +104,10 @@ int main(int argc, char *argv[])
       printf("Please enter a valid command\n");
       break;
     }
+
+    /* Close all client connections */
+    for(int i = 0; i<MAX_DFS_SERVERS; i++)
+      close(client_socket[i]);
   }
  
   /* Close all client connections */
