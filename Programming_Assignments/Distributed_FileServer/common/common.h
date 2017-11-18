@@ -24,6 +24,8 @@
 
 #define CHUNK_DUPLICATES 2
 
+#define ENCRYPTION_ENABLED
+
 typedef enum infra_return_e {
   NULL_VALUE = 0,
   INCORRECT_INPUT,
@@ -52,6 +54,7 @@ typedef struct __client_config_data_t {
 typedef struct __server_config_data_t {
   char username[5][15];
   char password[5][15];
+  char filename[5][20];
 } server_config_data_t;
 
 char chunk_filename_list[4][20];
@@ -67,7 +70,7 @@ char cache_put_filenames[5][20];
 uint8_t auth_server_list[MAX_DFS_SERVERS];
 
 char chunk_names[MAX_DFS_SERVERS][10] = {
-  ".chunk_0", ".chunk_1", ".chunk_2", ".chunk_3"
+  "chunk_0", "chunk_1", "chunk_2", "chunk_3"
   };
 
 uint8_t Distribution_Schema[MAX_DFS_SERVERS][MAX_DFS_SERVERS][CHUNK_DUPLICATES] = {
@@ -261,6 +264,9 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
   char sync_command[5];
   memset(sync_command, '\0', sizeof(sync_command));
 
+  char xor_array[chunk_size];
+  memset(xor_array, '1', sizeof(xor_array));
+
   /* this loop runs for as many duplicate chunks that are require */
   for(i = 0; i<CHUNK_DUPLICATES; i++) {    
   
@@ -278,8 +284,17 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
            &chunk_size, sizeof(size_t), 0);
 
     /* Send this data chunk to the correct server as per the schema */
+#ifdef ENCRYPTION_ENABLED
+    memset(xor_array, '1', sizeof(xor_array));
+    for(int i = 0; i<sizeof(xor_array); i++) {
+      xor_array[i] = xor_array[i] ^ ((char *)data_chunk)[i];
+    }
     send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
-        data_chunk, chunk_size, 0); 
+        xor_array, chunk_size, 0);
+#else
+    send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
+        data_chunk, chunk_size, 0);
+#endif
 
     /* Next send the chunk number as well */
     send(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
@@ -300,8 +315,6 @@ void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
     /* To avoid any sync. issues, wait for a message */
     recv(sock_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)],\
             sync_command, sizeof(sync_command), 0);
-    printf("continue-ing...\n");
-  
   }
   
   return;
@@ -379,7 +392,6 @@ void Chunk_Store_File(uint8_t *sock_list, void *filename, uint8_t hash_mod_value
     if(seq == (MAX_DFS_SERVERS-1)) {
       printf("Last packet NOW!\n");
       read_count = fread(chunk_storage, 1, (packet_size + (file_size%4)), fp);
-      //printf("<<%s>>: read_count: %d\n", __func__, read_count);
 
       Send_Chunk(sock_list, filename, hash_mod_value, chunk_storage, read_count, seq, client_data); 
       return;
@@ -940,7 +952,6 @@ void Authenticate_Client_Connections(int8_t *client_socket,\
   for(int i = 0; i<MAX_DFS_SERVERS; i++) {
     Create_Client_Connections(&client_socket[i], client_data->client_ports.port_num[i],\
         &server_addr[i], sizeof(server_addr[i])); 
-    //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
     infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
     if(ret == AUTH_SUCCESS)
       auth_server_list[i]++;
@@ -951,31 +962,6 @@ void Authenticate_Client_Connections(int8_t *client_socket,\
 
   return;
 }
-
-#if 0
-void Authenticate_Client_Connections(char *command_name, uint8_t *client_socket,\
-              client_config_data_t *client_data)
-{
-  /* Clear the autheticate server list buffer */
-  memset(auth_server_list, 0, sizeof(auth_server_list));
-  
-  /* Iterate over all sockets and send the command to the server */
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) 
-    send(client_socket[i], command_name, strlen(command_name), 0);
-   
-  printf("waiting...\n");
-  getchar();
-
-  for (int i = 0; i < MAX_DFS_SERVERS; i++) {
-    /* Call the auth infra to authticate usernames and passwords */
-    infra_return ret = Send_Auth_Client_Login(client_socket[i], client_data);
-    if(ret == AUTH_SUCCESS)
-      auth_server_list[i]++;
-  }
-
-  return;
-}
-#endif
 
 void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
 {
@@ -1011,6 +997,9 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
     /* receive the name of the file */
     recv(*accept_ret, &filename_len, sizeof(size_t), 0); 
     recv(*accept_ret, filename, filename_len, 0);
+    
+    /* Store filename */
+    memcpy(server_config->filename[0], filename, strlen(filename));
 
     sprintf(write_string, "./DFS%d/%s/", server_num, server_config->username[0]);
     /* check if a dir for the user exists or not */
@@ -1046,6 +1035,115 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
     printf("chunk_seq_num: %d\n", chunk_seq_num);
 #endif
 
+  }
+
+  return;
+}
+
+void removeSubstring(char *s,const char *toremove)
+{
+    while( s=strstr(s,toremove) )
+          memmove(s,s+strlen(toremove),1+strlen(s+strlen(toremove)));
+}
+
+void Execute_List_Server(int *accept_ret, char *server_name,\
+                            server_config_data_t *server_config)
+{
+  /* Open the dir as per the username and peek */
+  DIR *directory = NULL;
+  struct dirent *dir = NULL;
+
+  /* Contruct the path to the directories and check if they are available */
+  char path_string[60];
+  memset(path_string, '\0', sizeof(path_string));
+
+  char temp_d_name[30];
+  memset(temp_d_name, '\0', sizeof(temp_d_name));
+  
+  char removal_string[30];
+  memset(removal_string, '\0', sizeof(removal_string));
+  
+  sprintf(removal_string, ".%s.", server_config->filename[0]);
+  printf("removal_string: %s\n", removal_string);
+
+  sprintf(path_string, "./%s/%s", server_name, server_config->username[0]);
+
+  directory = opendir(path_string);
+  if(directory) {
+    while((dir = readdir(directory)) != NULL) {
+
+      /* Discard these 2 cases! */
+      if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+        continue;
+      
+      memset(temp_d_name, '\0', sizeof(temp_d_name));
+      memcpy(temp_d_name, dir->d_name, strlen(dir->d_name));
+      //printf("%s\n", temp_d_name);
+  
+      removeSubstring(temp_d_name, removal_string);
+      printf("Post Removal: %s\n", temp_d_name);
+     
+      /* Send this over to the client for it to parse */
+      int send_ret = send(*accept_ret, temp_d_name, strlen(temp_d_name), MSG_NOSIGNAL);
+      if(send_ret < 0) {
+        perror("");
+        return;
+      }
+    }
+  }
+ 
+  return;
+}
+
+
+void Execute_List_Client(int8_t *client_socket, client_config_data_t *client_data)
+{
+  int recv_ret = 0;
+  /* Receive data from the servers */
+  char chunk_buffer[8];
+  memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+  
+  uint8_t chunk_checklist[MAX_DFS_SERVERS];
+  memset(chunk_checklist, 0, sizeof(chunk_checklist));
+  
+  uint8_t local_file_lookup[MAX_DFS_SERVERS][MAX_DFS_SERVERS];
+  memset(local_file_lookup, 0, sizeof(local_file_lookup));
+  
+  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+    
+    for(int i = 0 ; i<2; i++) {
+      memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+      recv_ret = recv(client_socket[j], chunk_buffer, 7, 0);
+      if(recv_ret < 0) {
+        perror("");
+        return;
+      }
+      printf("%s\n", chunk_buffer);
+
+      for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+        if(!strcmp(chunk_buffer, chunk_names[k])) {
+          local_file_lookup[j][k]++;
+          chunk_checklist[k]++;
+        }
+      } 
+    }
+  }
+#if 1 
+  printf("Chunk Storage -->\n");
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+      printf("%d ", local_file_lookup[i][k]);
+    }
+    printf("\n");
+  }
+#endif
+  
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    if(chunk_checklist[i] < 1) {
+      printf("%s incomplete!\n", chunk_names[i]);
+    } else {
+      printf("%s\n", chunk_names[i]);
+    }
   }
 
   return;

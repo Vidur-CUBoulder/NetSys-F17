@@ -23,57 +23,11 @@ int main(int argc, char *argv[])
   struct sockaddr_in server_addr[MAX_DFS_SERVERS];
   memset(&server_addr, 0, sizeof(server_addr));
 
-#if 0
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
-        &server_addr[i], sizeof(server_addr[i])); 
-
-#if 0
-    /* Client receive test */ 
-    memset(buffer, '\0', sizeof(buffer));
-    recv(client_socket[i], buffer, 50, 0);
-    printf("buffer: %s\n", buffer);
-
-    /* Client send test */
-    int send_ret = send(client_socket[i], client_data.username,\
-        strlen(client_data.username), 0);
-    if(send_ret < 0) {
-      perror("SEND");
-      exit(0);
-    }
-#endif
-    
-    infra_return ret = Send_Auth_Client_Login(client_socket[i], &client_data);
-    /* If SUCCESS, update the running server list in the client */
-    if(ret == AUTH_SUCCESS)
-      auth_server_list[i]++;
-  }
-#endif
-
   int cntr = 0;
   while(1) {
     
     /* Start a command line interface */
     start_command_infra(&cntr, &client_data);
-
-#if 0 
-    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-      Create_Client_Connections(&client_socket[i], client_data.client_ports.port_num[i],\
-          &server_addr[i], sizeof(server_addr[i])); 
-      //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
-      infra_return ret = Send_Auth_Client_Login(client_socket[i], &client_data);
-      if(ret == AUTH_SUCCESS)
-        auth_server_list[i]++;
-      
-      send(client_socket[i], global_client_buffer[0], strlen(global_client_buffer[0]), 0);
-      
-      getchar();
-    
-    }
-#endif
-    
-    
-    //Authenticate_Client_Connections(valid_commands[0], client_socket, &client_data); 
     
     if(!strcmp(global_client_buffer[0], valid_commands[3])) {
       /* Exit from the program, gracefully please! */
@@ -84,8 +38,8 @@ int main(int argc, char *argv[])
     } else if(!strcmp(global_client_buffer[0], valid_commands[0])) {
       /* Put the file into the DFS under the 'username' dir. */
       /* Authenticate with all the servers first */
-      
       Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
+      
       Execute_Put_File(client_socket, global_client_buffer[1], &client_data);
     
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
@@ -95,7 +49,8 @@ int main(int argc, char *argv[])
       //Get_File_From_Servers(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
-      //Authenticate_Client_Connections(valid_commands[2], client_socket, &client_data); 
+      Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
+      Execute_List_Client(client_socket, &client_data);
       //Execute_List(&client_data);
     } else if(!strcmp(global_client_buffer[0], valid_commands[4])) {
       /* Clear the CLI */
