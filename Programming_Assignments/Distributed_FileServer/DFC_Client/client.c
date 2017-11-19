@@ -48,6 +48,12 @@ int main(int argc, char *argv[])
       /* Get the file from the DFS servers */
       printf("In GET!\n");
       Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
+      
+      for(int p = 0; p <MAX_DFS_SERVERS; p++) {
+        printf("auth_server_list[%d]: %d\n", p, auth_server_list[p]);
+        send(client_socket[p], &auth_server_list[p], sizeof(uint8_t), MSG_NOSIGNAL);
+      }
+      
       Get_File_From_Servers(client_socket, &client_data);
       } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */

@@ -24,7 +24,7 @@
 
 #define CHUNK_DUPLICATES 2
 
-#define ENCRYPTION_ENABLED
+//#define ENCRYPTION_ENABLED
 
 typedef enum infra_return_e {
   NULL_VALUE = 0,
@@ -198,55 +198,6 @@ infra_return start_command_infra(int *cntr, client_config_data_t *client_data)
 
   return VALID_RETURN;
 }
-
-#if 0
-void Send_Chunk(void *filename, uint8_t hash_mod_value, void *data_chunk,size_t chunk_size,\
-                          uint8_t chunk_seq, client_config_data_t *client_data)
-{
-  if(data_chunk == NULL) {
-    return;
-  }
-  
-  FILE *fp = NULL;
-  char write_string[70];
-  int i = 0;
-  struct stat st = {0};
-
-  /* this loop runs for as many duplicate chunks that are require */
-  for(i = 0; i<CHUNK_DUPLICATES; i++) {    
-   
-    /* The below logic checks if the server is authenticated or not */
-    if(!auth_server_list[(Distribution_Schema[hash_mod_value][chunk_seq][i] - 1)])
-      continue;
-    
-    memset(write_string, '\0', strlen(write_string));
-    sprintf(write_string, "../DFS_Server/DFS%d/%s",\
-        Distribution_Schema[hash_mod_value][chunk_seq][i], client_data->username);
-    printf("Sending... hash_val: %d\nchunk %d\npath: %s\n", hash_mod_value, chunk_seq, write_string);
-    if(stat(write_string, &st) == -1) {
-      printf("%s directory does not exist, create now!\n", client_data->username);
-      int ret_val = mkdir(write_string, 0777);
-      if(ret_val < 0) {
-        perror("");
-        return;
-      }
-    }
-    sprintf(write_string, "../DFS_Server/DFS%d/%s/.%s.chunk_%d",\
-        Distribution_Schema[hash_mod_value][chunk_seq][i], client_data->username,\
-                                client_data->filename, chunk_seq);  
-    fp = fopen(write_string, "wb");
-    if(fp == NULL) {
-      printf("<%s>: Unable to open the file!\n", __func__);
-      return;
-    }
-    //fwrite(local_chunk_storage, sizeof(char), strlen(local_chunk_storage), fp);
-    fwrite((char *)data_chunk, 1, chunk_size, fp);
-    fclose(fp);
-  }
-
-  return;
-}
-#endif
 
 void Send_Chunk(uint8_t *sock_list, void *filename, uint8_t hash_mod_value, \
                   void *data_chunk,size_t chunk_size,\
@@ -597,13 +548,6 @@ void Parse_Server_Config_File(void *filename, server_config_data_t *config)
     }
   }
 
-#if 0 
-  for(int i = 0; i<2; i++) {
-    printf("config->username: %s\n", config->username[i]);
-    printf("config->password: %s\n", config->password[i]);
-  }
-#endif
-
   free(line);
   return;
 }
@@ -894,57 +838,6 @@ void Execute_List(client_config_data_t *client_data)
   return;
 }
 
-#if 0
-void Get_File_From_Servers(client_config_data_t *client_data)
-{
-  DIR *directory = NULL;
-  struct dirent *dir = NULL;
-  
-  /* Query the server locations for the chunks; in order */
-  char path_string[60];
-  memset(path_string, '\0', sizeof(path_string));
- 
-  bool found = false;
-
-  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
-    for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-      memset(path_string, '\0', sizeof(path_string));
-      sprintf(path_string, "../DFS_Server/DFS%d/%s", (i+1), client_data->username);
-      //printf("%s\n", path_string);
-
-      directory = opendir(path_string);
-      if(directory) {
-        while((dir = readdir(directory)) != NULL) {
-
-          /* Discard these 2 cases! */
-          if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
-            continue;
-         
-        
-          if(!strcmp(dir->d_name, chunk_names[j])) {
-            /* Do the read and write operation now! */
-            printf("%s\n", dir->d_name);
-            found = true;
-            break;
-          }
-        }
-      } else {
-        printf("Unable to open the file!\n");
-      }
-      if(found == true) {
-        closedir(directory);
-        found = false;
-        break;
-      } else {
-        closedir(directory);
-      }
-    }
-  }
-  return;
-}
-#endif    
-
-
 void Authenticate_Client_Connections(int8_t *client_socket,\
                 client_config_data_t *client_data, struct sockaddr_in *server_addr)
 {
@@ -1165,11 +1058,11 @@ void Execute_List_Client(int8_t *client_socket, client_config_data_t *client_dat
 }
 
 void Give_File_To_Client(int *accept_ret, server_config_data_t *server_config,\
-                          char *server_name)
+                          char *server_name, int kill_switch)
 {
   DIR *directory = NULL;
   struct dirent *dir = NULL;
-  char path_string[60];
+  char path_string[80];
   char temp_d_name[30];
   char removal_string[30];
 
@@ -1209,15 +1102,56 @@ void Give_File_To_Client(int *accept_ret, server_config_data_t *server_config,\
     }
   }
   closedir(directory);
- 
-  size_t file_chunk_name_size = 0;
-  char file_chunk_name[30];
-  memset(file_chunk_name, '\0', sizeof(file_chunk_name));
+  
+  char req_string[40];
+  memset(req_string, '\0', sizeof(req_string));
+  char chunk_storage[10000];
+  memset(chunk_storage, '\0', sizeof(chunk_storage));
 
-  recv(*accept_ret, &file_chunk_name_size, sizeof(size_t), 0);
-  recv(*accept_ret, file_chunk_name, file_chunk_name_size, 0);
+  size_t req_string_len = 0;
+  bool reset_server = false;
+  while(1) {
 
-  printf("file_chunk_name: %s\n", file_chunk_name);
+    printf("Starting while(1) now <<%s>>\n", __func__);
+
+    memset(req_string, '\0', sizeof(req_string));
+    memset(chunk_storage, '\0', sizeof(chunk_storage));
+    recv(*accept_ret, &reset_server, sizeof(bool), 0);
+
+    if(reset_server == true)
+      break;
+
+    memset(req_string, '\0', sizeof(req_string));
+    recv(*accept_ret, &req_string_len, sizeof(size_t), 0); 
+    recv(*accept_ret, &req_string, req_string_len, 0);
+    printf("req_string(%lu): %s\n", req_string_len, req_string);
+
+    memset(path_string, '\0', sizeof(path_string));
+    sprintf(path_string, "%s/%s/%s", server_name, server_config->username[0],\
+        req_string);
+    printf("path_string: %s\n", path_string);
+
+    FILE *fp = NULL;
+    fp = fopen(path_string, "rb");
+    if(fp == NULL) {
+      printf("<%s>: Unable to open the file!\n", __func__);
+      return;
+    }
+
+    size_t file_size = 0;
+    fseek(fp, 0L, SEEK_END);
+    file_size = ftell(fp);
+    rewind(fp);
+
+    send(*accept_ret, &file_size, sizeof(size_t), 0);
+
+    fread(chunk_storage,1,file_size, fp);
+    printf("%s\n", chunk_storage);
+
+    send(*accept_ret, chunk_storage, file_size, 0);
+
+    fclose(fp);
+  }
 
   return;
 }
@@ -1263,35 +1197,62 @@ void Get_File_From_Servers(uint8_t *client_socket, client_config_data_t *config_
     }
     printf("\n");
   }
+  bool send_reset_server = false;
 
-  char path_string[40];
-  memset(path_string, '\0', sizeof(path_string));
+  char chunk_req_string[30];
+  memset(chunk_req_string, '\0', sizeof(chunk_req_string));
 
-  size_t chunk_len = 0;
+  int j = 0;
+  int i = 0;
 
-  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
-    for(int k = 0; k<MAX_DFS_SERVERS; k++) {
-      printf("local_file_lookup(k:%d, i:%d): %d\n",k,i,local_file_lookup[k][i]); 
-      if(local_file_lookup[k][i]) {
+  char get_chunk[100000];
+  memset(get_chunk, '\0', sizeof(get_chunk));
+  FILE *write_fp = NULL;
+  write_fp = fopen(config_data->filename, "wb");
+
+  while(i != 4) {
+    j = 0;
+    while(j != 4) {
+      if(local_file_lookup[j][i]) { //chunk found
+        printf("Chunk %d @ (%d, %d)\n", i, j, i);
+        /* Request the chunk from the server */
+        getchar();
+        send_reset_server = false;
+        send(client_socket[j], &send_reset_server, sizeof(bool), MSG_NOSIGNAL); 
         
-        memset(path_string, '\0', sizeof(path_string));
-        sprintf(path_string, ".%s.%s", config_data->filename, chunk_names[i]);
-        printf("path_string: %s\n", path_string);
-        size_t path_str_len = strlen(path_string);
-       
-        send(client_socket[k], &path_str_len, sizeof(size_t), 0);
-        send(client_socket[k], path_string, strlen(path_string), 0);
-        //recv(client_socket[i], &chunk_len, sizeof(size_t), 0);
-        //recv(client_socket[i], chunk_data, chunk_len, 0);
+        /* Create the chunk string */
+        sprintf(chunk_req_string, ".%s.%s",config_data->filename, chunk_names[i]);
+        printf("chunk_req_string: %s\n", chunk_req_string);
+        
+        /* Send the req. for the string to the correct server */
+        size_t strlen_req_string = strlen(chunk_req_string);
+        send(client_socket[j], &strlen_req_string, sizeof(size_t), MSG_NOSIGNAL);
+        send(client_socket[j], chunk_req_string, strlen_req_string, MSG_NOSIGNAL);
+        
+        size_t get_chunk_len = 0;
+        memset(get_chunk, '\0', sizeof(get_chunk));
+        recv(client_socket[j], &get_chunk_len, sizeof(size_t), 0);
+        recv(client_socket[j], &get_chunk, get_chunk_len, 0);
+        printf("CHUNK(%lu): %s\n", get_chunk_len, get_chunk);
 
-        /* write to a file */
+        fwrite(get_chunk, 1, get_chunk_len, write_fp);
+
         break;
       }
+      j++;
     }
+    if(j == 4) {
+      printf("Chunk Not Found!!\n");
+      break;
+    }
+    i++;
   }
 
+  fclose(write_fp);
 
-
+  send_reset_server = true;
+  for(int l = 0; l<MAX_DFS_SERVERS; l++)
+    send(client_socket[l], &send_reset_server, sizeof(bool), MSG_NOSIGNAL);
   return;
 }
 
