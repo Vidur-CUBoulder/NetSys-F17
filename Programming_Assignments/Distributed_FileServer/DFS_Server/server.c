@@ -75,26 +75,29 @@ int main(int argc, char *argv[])
     } else if (!strcmp(buffer, valid_commands[0])) { 
       
       Execute_Put_Server(&accept_ret, &server_config);
-      
-      /* Gracefully close the socket */
-      shutdown(accept_ret, SHUT_RDWR);  
-      close(accept_ret);
     } else if(!strcmp(buffer, valid_commands[1])) {
       printf("In GET!\n");
-      Auth_Client_Connections(&accept_ret, &server_config);
+      char temp[4];
+      memcpy(temp, argv[2], strlen(argv[2]));
+      removeSubstring(temp, "DFS");
+      int out = atoi(temp);
+      Give_File_To_Client(&accept_ret, &server_config, argv[2], (out-1));
+      //Auth_Client_Connections(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[2])) {
-      printf("In LIST\n");
-      Auth_Client_Connections(&accept_ret, &server_config);
+      printf("In LIST.\n");
+      Execute_List_Server(&accept_ret, argv[2], &server_config);
     } else {
       printf("Invalid username sent!\n");
       break;
     }
 #endif
-  
+    /* Gracefully shutdown the socket connection */ 
+    shutdown(accept_ret, SHUT_RDWR);  
     close(server_socket);
   
   }
 
+  shutdown(accept_ret, SHUT_RDWR);  
   close(server_socket);
 
 #if 0
