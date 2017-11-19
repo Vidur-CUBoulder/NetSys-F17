@@ -1164,7 +1164,135 @@ void Execute_List_Client(int8_t *client_socket, client_config_data_t *client_dat
   return;
 }
 
+void Give_File_To_Client(int *accept_ret, server_config_data_t *server_config,\
+                          char *server_name)
+{
+  DIR *directory = NULL;
+  struct dirent *dir = NULL;
+  char path_string[60];
+  char temp_d_name[30];
+  char removal_string[30];
+
+  /* Contruct the path to the directories and check if they are available */
+  memset(path_string, '\0', sizeof(path_string));
+  memset(temp_d_name, '\0', sizeof(temp_d_name));
+  sprintf(removal_string, ".%s.", server_config->filename[0]);
 
 
+  printf("removal_string: %s\n", removal_string);
+
+  sprintf(path_string, "./%s/%s", server_name, server_config->username[0]);
+
+  directory = opendir(path_string);
+  if(directory) {
+    while((dir = readdir(directory)) != NULL) {
+
+      /* Discard these 2 cases! */
+      if(!strcmp(dir->d_name, ".") || !(strcmp(dir->d_name, "..")))
+        continue;
+
+      memset(temp_d_name, '\0', sizeof(temp_d_name));
+      memcpy(temp_d_name, dir->d_name, strlen(dir->d_name));
+      //printf("%s\n", temp_d_name);
+
+      removeSubstring(temp_d_name, removal_string);
+      printf("Post Removal: %s\n", temp_d_name);
+
+      if(temp_d_name[0] != '.') {
+        /* Send this over to the client for it to parse */
+        int send_ret = send(*accept_ret, temp_d_name, strlen(temp_d_name), MSG_NOSIGNAL);
+        if(send_ret < 0) {
+          perror("");
+          return;
+        }
+      }
+    }
+  }
+  closedir(directory);
+ 
+  size_t file_chunk_name_size = 0;
+  char file_chunk_name[30];
+  memset(file_chunk_name, '\0', sizeof(file_chunk_name));
+
+  recv(*accept_ret, &file_chunk_name_size, sizeof(size_t), 0);
+  recv(*accept_ret, file_chunk_name, file_chunk_name_size, 0);
+
+  printf("file_chunk_name: %s\n", file_chunk_name);
+
+  return;
+}
+
+void Get_File_From_Servers(uint8_t *client_socket, client_config_data_t *config_data)
+{
+
+  int recv_ret = 0;
+  /* Receive data from the servers */
+  char chunk_buffer[8];
+  memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+  
+  uint8_t chunk_checklist[MAX_DFS_SERVERS];
+  memset(chunk_checklist, 0, sizeof(chunk_checklist));
+  
+  uint8_t local_file_lookup[MAX_DFS_SERVERS][MAX_DFS_SERVERS];
+  memset(local_file_lookup, 0, sizeof(local_file_lookup));
+  
+  for(int j = 0; j<MAX_DFS_SERVERS; j++) {
+
+    for(int i = 0 ; i<2; i++) {
+      memset(chunk_buffer, '\0', sizeof(chunk_buffer));
+      recv_ret = recv(client_socket[j], chunk_buffer, 7, 0);
+      if(recv_ret < 0) {
+        perror("");
+        return;
+      }
+      printf("%s\n", chunk_buffer);
+
+      for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+        if(!strcmp(chunk_buffer, chunk_names[k])) {
+          local_file_lookup[j][k]++;
+          chunk_checklist[k]++;
+        }
+      } 
+    }
+  }
+
+  printf("Chunk Storage -->\n");
+  for(int n = 0; n<MAX_DFS_SERVERS; n++) {
+    for(int m = 0; m<MAX_DFS_SERVERS; m++) {
+      printf("%d ", local_file_lookup[n][m]);
+    }
+    printf("\n");
+  }
+
+  char path_string[40];
+  memset(path_string, '\0', sizeof(path_string));
+
+  size_t chunk_len = 0;
+
+  for(int i = 0; i<MAX_DFS_SERVERS; i++) {
+    for(int k = 0; k<MAX_DFS_SERVERS; k++) {
+      printf("local_file_lookup(k:%d, i:%d): %d\n",k,i,local_file_lookup[k][i]); 
+      if(local_file_lookup[k][i]) {
+        
+        memset(path_string, '\0', sizeof(path_string));
+        sprintf(path_string, ".%s.%s", config_data->filename, chunk_names[i]);
+        printf("path_string: %s\n", path_string);
+        size_t path_str_len = strlen(path_string);
+       
+        send(client_socket[k], &path_str_len, sizeof(size_t), 0);
+        send(client_socket[k], path_string, strlen(path_string), 0);
+        //recv(client_socket[i], &chunk_len, sizeof(size_t), 0);
+        //recv(client_socket[i], chunk_data, chunk_len, 0);
+
+        /* write to a file */
+        break;
+      }
+    }
+  }
+
+
+
+  return;
+}
 
 

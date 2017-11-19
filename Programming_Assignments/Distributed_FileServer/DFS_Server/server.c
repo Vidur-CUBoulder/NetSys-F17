@@ -77,6 +77,7 @@ int main(int argc, char *argv[])
       Execute_Put_Server(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[1])) {
       printf("In GET!\n");
+      Give_File_To_Client(&accept_ret, &server_config, argv[2]);
       //Auth_Client_Connections(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[2])) {
       printf("In LIST.\n");

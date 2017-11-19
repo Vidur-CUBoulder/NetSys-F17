@@ -23,6 +23,8 @@ int main(int argc, char *argv[])
   struct sockaddr_in server_addr[MAX_DFS_SERVERS];
   memset(&server_addr, 0, sizeof(server_addr));
 
+  bool reset_server = false;
+
   int cntr = 0;
   while(1) {
     
@@ -45,9 +47,9 @@ int main(int argc, char *argv[])
     } else if(!strcmp(global_client_buffer[0], valid_commands[1])) {
       /* Get the file from the DFS servers */
       printf("In GET!\n");
-      //Authenticate_Client_Connections(valid_commands[1], client_socket, &client_data); 
-      //Get_File_From_Servers(&client_data);
-    } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
+      Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
+      Get_File_From_Servers(client_socket, &client_data);
+      } else if(!strcmp(global_client_buffer[0], valid_commands[2])) {
       /* List the files in the DFS and check if its recoverable */
       Authenticate_Client_Connections(client_socket, &client_data, server_addr); 
       Execute_List_Client(client_socket, &client_data);
