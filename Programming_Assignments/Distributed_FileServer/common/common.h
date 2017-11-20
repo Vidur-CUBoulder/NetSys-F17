@@ -279,7 +279,7 @@ infra_return Auth_Client_Connections(int *return_accept_socket, server_config_da
    */
   char buffer[50];
   memset(buffer, '\0', sizeof(buffer));
-
+  
   static uint8_t server_count = 0;
 
   recv(*return_accept_socket, buffer, 50, 0);
@@ -851,6 +851,18 @@ void Authenticate_Client_Connections(int8_t *client_socket,\
 
     send(client_socket[i], global_client_buffer[0], strlen(global_client_buffer[0]), MSG_NOSIGNAL);
 
+    size_t size_dir_name = strlen(global_client_buffer[2]);
+    send(client_socket[i], &size_dir_name, sizeof(size_t), MSG_NOSIGNAL);
+    
+    char dir_name[size_dir_name];
+    memset(dir_name, '\0', sizeof(dir_name));
+    
+    memcpy(dir_name, global_client_buffer[2], strlen(global_client_buffer[2]));
+    
+    if(size_dir_name != 0) {
+      send(client_socket[i], dir_name, size_dir_name, MSG_NOSIGNAL);
+    }
+
   }
 
   return;
@@ -919,7 +931,7 @@ void Execute_Put_Server(int *accept_ret, server_config_data_t *server_config)
     fwrite(data_buffer, 1, chunk_size, fp);
     fclose(fp);
 
-    send(*accept_ret, "cont", strlen("cont"), 0); 
+    send(*accept_ret, "cont", strlen("cont"), MSG_NOSIGNAL); 
 
 #ifdef DEBUG_ALL
     printf("server_num: %d\n", server_num);

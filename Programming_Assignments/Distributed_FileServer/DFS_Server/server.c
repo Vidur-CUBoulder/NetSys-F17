@@ -69,7 +69,23 @@ int main(int argc, char *argv[])
       return 0;
     }
     printf("<%s>: buffer: %s\n", __func__, buffer);
-   
+  
+    /* The recv for the 2nd CLI from user, extra dir. one */
+    char dir_name[10];
+    memset(dir_name, '\0', sizeof(dir_name));
+    
+    size_t dir_name_size = 0;
+    recv(accept_ret, &dir_name_size, sizeof(size_t), 0);
+    printf("dir_name_size: %lu\n", dir_name_size);
+    
+    if(dir_name_size != 0) {
+      recv(accept_ret, &dir_name, dir_name_size, 0);
+      memset(server_config.username[0], '\0', sizeof(server_config.username[0]));
+      memcpy(server_config.username[0], dir_name, strlen(dir_name));
+      printf("<<<<<<%s>>>>>>: dir_name: %s\n", __func__, dir_name);
+    }
+
+
     if(!(strcmp(buffer, "exit"))) {
       break;
     } else if (!strcmp(buffer, valid_commands[0])) { 
@@ -85,7 +101,7 @@ int main(int argc, char *argv[])
       uint8_t run_next = 0;    
       recv(accept_ret, &run_next, sizeof(uint8_t), 0);
       printf("run_next: %d\n", run_next);
-      if(run_next > 1) 
+      if(run_next >= 1) 
         Give_File_To_Client(&accept_ret, &server_config, argv[2], (out-1));
       //Auth_Client_Connections(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[2])) {
