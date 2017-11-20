@@ -19,7 +19,7 @@ int main()
   }
   
   FILE *fp_write = NULL;
-  fp_write = fopen("./xor_temp.txt", "wb");
+  fp_write = fopen("./xor_temp", "wb");
   
   uint32_t read_count = 0;
   uint32_t file_size = 0;
@@ -32,14 +32,21 @@ int main()
 
   /* XOR the array */
   char xor_array[file_size];
+  char xor_array_1[file_size];
   memset(xor_array, '1', sizeof(xor_array));
+  memset(xor_array_1, '1', sizeof(xor_array_1));
+  
   for(int i = 0; i<sizeof(xor_array); i++) {
     xor_array[i] = xor_array[i] ^ chunk_storage[i];
     //printf("%c ", xor_array[i]);
   }
 
+  for(int j = 0; j<sizeof(xor_array); j++) {
+    xor_array_1[j] = xor_array_1[j] ^ xor_array[j];
+  }
+
   /* Write to a temp file */
-  fwrite(xor_array, 1, file_size, fp_write);
+  fwrite(xor_array_1, 1, file_size, fp_write);
 
   fclose(fp_write);
   fclose(fp);

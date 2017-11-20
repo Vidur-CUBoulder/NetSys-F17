@@ -24,7 +24,7 @@
 
 #define CHUNK_DUPLICATES 2
 
-//#define ENCRYPTION_ENABLED
+#define ENCRYPTION_ENABLED
 
 typedef enum infra_return_e {
   NULL_VALUE = 0,
@@ -1235,7 +1235,16 @@ void Get_File_From_Servers(uint8_t *client_socket, client_config_data_t *config_
         recv(client_socket[j], &get_chunk, get_chunk_len, 0);
         printf("CHUNK(%lu): %s\n", get_chunk_len, get_chunk);
 
+#ifdef ENCRYPTION_ENABLED
+        char xor_array[get_chunk_len];
+        memset(xor_array, '1', sizeof(xor_array));
+        for(int k = 0; k<get_chunk_len; k++) {
+          xor_array[k] = xor_array[k] ^ get_chunk[k];
+        }
+        fwrite(xor_array, 1, get_chunk_len, write_fp);
+#else
         fwrite(get_chunk, 1, get_chunk_len, write_fp);
+#endif
 
         break;
       }
