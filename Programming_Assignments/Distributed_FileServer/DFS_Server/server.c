@@ -82,7 +82,6 @@ int main(int argc, char *argv[])
       recv(accept_ret, &dir_name, dir_name_size, 0);
       memset(server_config.username[0], '\0', sizeof(server_config.username[0]));
       memcpy(server_config.username[0], dir_name, strlen(dir_name));
-      printf("<<<<<<%s>>>>>>: dir_name: %s\n", __func__, dir_name);
     }
 
 
@@ -92,7 +91,6 @@ int main(int argc, char *argv[])
       
       Execute_Put_Server(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[1])) {
-      printf("In GET!\n");
       char temp[4];
       memcpy(temp, argv[2], strlen(argv[2]));
       removeSubstring(temp, "DFS");
@@ -100,12 +98,9 @@ int main(int argc, char *argv[])
       
       uint8_t run_next = 0;    
       recv(accept_ret, &run_next, sizeof(uint8_t), 0);
-      printf("run_next: %d\n", run_next);
       if(run_next >= 1) 
         Give_File_To_Client(&accept_ret, &server_config, argv[2], (out-1));
-      //Auth_Client_Connections(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[2])) {
-      printf("In LIST.\n");
       Execute_List_Server(&accept_ret, argv[2], &server_config);
     } else {
       printf("Invalid username sent!\n");

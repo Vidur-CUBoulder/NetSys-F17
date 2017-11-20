@@ -1228,7 +1228,6 @@ void Get_File_From_Servers(uint8_t *client_socket, client_config_data_t *config_
       if(local_file_lookup[j][i]) { //chunk found
         printf("Chunk %d @ (%d, %d)\n", i, j, i);
         /* Request the chunk from the server */
-        getchar();
         send_reset_server = false;
         send(client_socket[j], &send_reset_server, sizeof(bool), MSG_NOSIGNAL); 
         
@@ -1263,7 +1262,7 @@ void Get_File_From_Servers(uint8_t *client_socket, client_config_data_t *config_
       j++;
     }
     if(j == 4) {
-      printf("Chunk Not Found!!\n");
+      printf("Chunk %d Not Found!!\n", i);
       break;
     }
     i++;
