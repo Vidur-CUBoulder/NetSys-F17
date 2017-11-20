@@ -61,30 +61,43 @@ int main(int argc, char *argv[])
         &address, addr_len, &server_config );
     
     /* Get the data from the client and verify username and pass */
-    printf("waiting for the next command!!\n");
     memset(buffer, '\0', sizeof(buffer));
     int recv_ret = recv(accept_ret, buffer, 50, 0);
     if(recv_ret < 0) {
       perror("");
       return 0;
     }
-    printf("<%s>: buffer: %s\n", __func__, buffer);
-   
+  
+    /* The recv for the 2nd CLI from user, extra dir. one */
+    char dir_name[10];
+    memset(dir_name, '\0', sizeof(dir_name));
+    
+    size_t dir_name_size = 0;
+    recv(accept_ret, &dir_name_size, sizeof(size_t), 0);
+    
+    if(dir_name_size != 0) {
+      recv(accept_ret, &dir_name, dir_name_size, 0);
+      memset(server_config.username[0], '\0', sizeof(server_config.username[0]));
+      memcpy(server_config.username[0], dir_name, strlen(dir_name));
+    }
+
+
     if(!(strcmp(buffer, "exit"))) {
       break;
     } else if (!strcmp(buffer, valid_commands[0])) { 
       
       Execute_Put_Server(&accept_ret, &server_config);
     } else if(!strcmp(buffer, valid_commands[1])) {
-      printf("In GET!\n");
       char temp[4];
       memcpy(temp, argv[2], strlen(argv[2]));
       removeSubstring(temp, "DFS");
       int out = atoi(temp);
-      Give_File_To_Client(&accept_ret, &server_config, argv[2], (out-1));
-      //Auth_Client_Connections(&accept_ret, &server_config);
+      
+      uint8_t run_next = 0;    
+      recv(accept_ret, &run_next, sizeof(uint8_t), 0);
+      if(run_next >= 1) 
+        Give_File_To_Client(&accept_ret, &server_config, argv[2], (out-1));
     } else if(!strcmp(buffer, valid_commands[2])) {
-      printf("In LIST.\n");
       Execute_List_Server(&accept_ret, argv[2], &server_config);
     } else {
       printf("Invalid username sent!\n");
