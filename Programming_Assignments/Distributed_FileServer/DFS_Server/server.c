@@ -113,25 +113,6 @@ int main(int argc, char *argv[])
   shutdown(accept_ret, SHUT_RDWR);  
   close(server_socket);
 
-#if 0
-  char buffer[20];
-  memset(buffer, '\0', sizeof(buffer));
-  strcpy(buffer, "hello world");
-
-  /* Server send test */
-  int send_ret = send(accept_ret, buffer, strlen(buffer), 0);
-  if(send_ret < 0) {
-    perror("SEND");
-    exit(0);
-  }
-
-  /* Server receive test */
-  char buffer[48];
-  memset(buffer, '\0', sizeof(buffer));
-  recv(accept_ret, buffer, 48, 0);
-  printf("buffer: %s\n", buffer);
-#endif
-
   return 0;
 }
 
