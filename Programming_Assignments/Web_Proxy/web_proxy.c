@@ -37,7 +37,7 @@ typedef struct __URL_information {
   char domain_name[100];
   char filename[1000];
   char http_version[20];
-  char domain_name_hash[MD5_DIGEST_LENGTH*2];
+  char domain_name_hash[MD5_DIGEST_LENGTH*2+1];
   bool cache_file;
 } parsed_url;
 
@@ -423,7 +423,8 @@ void *parse_client_request(void *accept_socket_number)
   printf("<%lu>: url_request.domain_name: %s\n", strlen(url_request.domain_name),\
                                               url_request.domain_name);
   printf("url_request.filename: %s\n", url_request.filename);
-  printf("url_request.domain_name_hash: %s\n", url_request.domain_name_hash);
+  printf("<%lu>:url_request.domain_name_hash: %s\n", strlen(url_request.domain_name_hash),\
+                    url_request.domain_name_hash);
   printf("url_request.ip_addr: %s\n", url_request.ip_addr);
   printf("url_request.domain_name: %s\n", url_request.domain_name);
   printf("url_request.client_command: %s\n", url_request.client_command);
@@ -439,7 +440,10 @@ void *parse_client_request(void *accept_socket_number)
   } else {
     send_file_from_webserver(*accept_socket, &url_request);
   }
-  
+ 
+  close(*accept_socket);
+  pthread_exit(NULL);
+
   return NULL;
 }
 
@@ -500,7 +504,7 @@ int main(int argc, char *argv[])
     get_client_request(&client_slots[active_connections], server_sock,\
                         &address, addrlen);
 
-    active_connections = (active_connections+1) % 100;
+    active_connections = (active_connections+1) % MAX_CONNECTIONS;
     printf("active_connections: %d\n", active_connections); 
   }
 
