@@ -17,7 +17,7 @@
 #include<sys/stat.h>
 #include<dirent.h>
 
-#define MAX_CONNECTIONS 100
+#define MAX_CONNECTIONS 10000
 #define TCP_SOCKETS SOCK_STREAM
 #define CACHE_DIR "cache"
 #define DEBUG_URL_PARSER
@@ -34,10 +34,10 @@ typedef struct __URL_information {
   uint32_t port_num;
   char ip_addr[20];
   char client_command[10];
-  char domain_name[60];
-  char filename[200];
+  char domain_name[100];
+  char filename[1000];
   char http_version[20];
-  char domain_name_hash[MD5_DIGEST_LENGTH];
+  char domain_name_hash[MD5_DIGEST_LENGTH*2];
   bool cache_file;
 } parsed_url;
 
@@ -110,10 +110,11 @@ int hostname_to_ip(char * hostname , char* ip)
 void create_md5_hash(char *digest_buffer, char *buffer)
 {
   unsigned char digest[MD5_DIGEST_LENGTH]; 
-  
+  memset(digest, '\0', sizeof(digest));
+
   MD5_CTX md5_struct;
   MD5_Init(&md5_struct);
-  MD5_Update(&md5_struct, buffer, sizeof(digest));
+  MD5_Update(&md5_struct, buffer, strlen(buffer));
   MD5_Final(digest, &md5_struct);
   
   //char md5string[33];
@@ -121,7 +122,7 @@ void create_md5_hash(char *digest_buffer, char *buffer)
 
   /* Store the MD5 hash as a string */
   for(int i = 0; i<MD5_DIGEST_LENGTH; i++) {
-    sprintf(&digest_buffer[i*2], "%02x", (unsigned int)digest[i]); 
+    sprintf(&digest_buffer[i*2], "%02x", digest[i]); 
   }
   //printf("md5string: %s\n", digest_buffer);
 
@@ -162,7 +163,7 @@ void url_cache_check(parsed_url *url_request)
   memset(file_path, '\0', sizeof(file_path));
 
   /* Store the file name as its hash value */
-  sprintf(file_path, "./%s/%s", CACHE_DIR, url_request->domain_name_hash);  
+  sprintf(file_path, "./cache/%s", url_request->domain_name_hash);  
   printf("file_path: %s\n", file_path);
 
   char c_time[60];
@@ -214,8 +215,8 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   struct sockaddr_in host_address;
   
   host_connection = gethostbyname(url_request->domain_name);
-  if(host_connection == NULL) {
-    perror("HostConnection:");
+  if(!host_connection) {
+    perror("HostConnection");
     return;
   }
 
@@ -243,16 +244,14 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   }
 
   /* Construct the GET request to send to the webserver */
-  char server_request[80];
+  char server_request[300];
   memset(server_request, '\0', sizeof(server_request));
-
-  printf("file:%c %d\n", url_request->filename[0], url_request->filename[0]);
 
   if(url_request->filename[0] == '\0') {
     sprintf(server_request, "GET / %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
         url_request->http_version, url_request->domain_name);
   } else {
-    sprintf(server_request, "GET /%s/ %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
+    sprintf(server_request, "GET /%s %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
         url_request->filename, url_request->http_version, url_request->domain_name);
   }
   
@@ -288,10 +287,14 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   do {
     memset(server_recv_buffer, '\0', sizeof(server_recv_buffer));
     recv_bytes = recv(server_sock, server_recv_buffer, sizeof(server_recv_buffer), 0);
-    
+   
+    /* Send the data over to the client via the client socket */
+    send(client_sock_num, server_recv_buffer, recv_bytes, 0);  
+
+    /* Write the buffer to the cache file */
     fwrite(server_recv_buffer, 1, recv_bytes, cache_fp);
     
-    printf("%s\n", server_recv_buffer);
+    //printf("%s\n", server_recv_buffer);
   } while(recv_bytes);
 
   url_request->cache_file = true;
@@ -301,14 +304,17 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   return;
 }
 
-void send_file_from_cache(int send_sock_num, parsed_url *url_request)
+void send_file_from_cache(int send_sock_num, parsed_url *url_request, char *temp_buffer)
 {
   /* Create the path to the file */
+  memset(url_request->domain_name_hash, '\0', sizeof(url_request->domain_name_hash));
+  create_md5_hash(url_request->domain_name_hash, temp_buffer);
+  
   char file_path[60];
   memset(file_path, '\0', sizeof(file_path));
 
   sprintf(file_path, "./%s/%s", CACHE_DIR, url_request->domain_name_hash);  
-  printf("file_path: %s\n", file_path);
+  printf("<%s>: file_path: %s\n", __func__, file_path);
   
   /* Open the file for reading */
   FILE *fp = NULL;
@@ -320,10 +326,10 @@ void send_file_from_cache(int send_sock_num, parsed_url *url_request)
   memset(buffer, '\0', sizeof(buffer));
  
   /* Send the cached chunks to the client */
-  while(file_bytes_read) {
+  do {
     file_bytes_read = fread(buffer, 1, MAX_BUFFER_SIZE, fp);
     send(send_sock_num, buffer, MAX_BUFFER_SIZE, 0);
-  }
+  } while(file_bytes_read);
 
   /* release the file pointer once you're done sending */
   fclose(fp);
@@ -349,11 +355,16 @@ void *parse_client_request(void *accept_socket_number)
 
   parsed_url url_request;
   memset(&url_request, '\0', sizeof(url_request));
-  //printf("client_response: %s\n", client_response);
+  printf("socket_num: %d\n", *accept_socket);
+
+  char temp_buffer[800];
+  memset(temp_buffer, '\0', sizeof(temp_buffer));
+
+  printf("client_response: %s\n", client_response);
 
   /* Parse the incoming client request */
   sscanf(client_response, "%s %s %s", url_request.client_command,\
-      url_request.domain_name, url_request.http_version);
+      temp_buffer, url_request.http_version);
   /*printf("method: %s\nurl: %s\nhttp_version: %s\n", url_request.client_command,\
                     url_request.domain_name, url_request.http_version);*/
   
@@ -370,54 +381,65 @@ void *parse_client_request(void *accept_socket_number)
   }
 
   /* Cleanup the URL and remove the slashes from it */
-  char *temp = strstr(url_request.domain_name, "//");  
-  char temp_out_array[50];
-  memset(temp_out_array, '\0', sizeof(temp_out_array));
-  memcpy(temp_out_array, (temp+2), (strlen(temp+2)-1));
-  memset(url_request.domain_name, '\0', sizeof(url_request.domain_name));
-  memcpy(url_request.domain_name, temp_out_array, strlen(temp_out_array));
+  char *temp = strstr(temp_buffer, "//");  
+  temp = temp + 2;
+  for(int i = 0; i<strlen(temp); i++) {
+    if(temp[i] == '/')
+      break;
+    url_request.domain_name[i] = temp[i];
+  }
+ 
+  //char temp_out_array[50];
+  //memset(temp_out_array, '\0', sizeof(temp_out_array));
+  //memcpy(temp_out_array, (temp+2), (strlen(temp+2)-1));
+  //memset(url_request.domain_name, '\0', sizeof(url_request.domain_name));
+  //memcpy(url_request.domain_name, temp_out_array, strlen(temp_out_array));
 
   /* Check if there is a filename/path extension to the URL */
+#if 1
   int j = 0;
-  while(j != strlen(url_request.domain_name)) {
-    if(url_request.domain_name[j] == '/') {
-      strcpy(url_request.filename, &url_request.domain_name[j+1]);
+  while(j != strlen(temp)) {
+    if(temp[j] == '/') {
+      strcpy(url_request.filename, &temp[j+1]);
       /* Change the URL as well */
-      url_request.domain_name[j] = '\0';
+      //url_request.domain_name[j] = '\0';
       break;
     }
     j++;
   }
+#endif
 
   /* Get the IP address for the hostname */
   hostname_to_ip(url_request.domain_name, url_request.ip_addr);
   
   /* Get the MD5 hash for the passed URL */
-  create_md5_hash(url_request.domain_name_hash, url_request.domain_name);
+  memset(url_request.domain_name_hash, '\0', sizeof(url_request.domain_name_hash));
+  create_md5_hash(url_request.domain_name_hash, temp_buffer);
+  
+  /* Check to see if the URL is still cached or not */
+  url_cache_check(&url_request);
 
 #ifdef DEBUG_URL_PARSER
   printf("<%lu>: url_request.domain_name: %s\n", strlen(url_request.domain_name),\
-                                              url_request.domain_name);;
+                                              url_request.domain_name);
   printf("url_request.filename: %s\n", url_request.filename);
   printf("url_request.domain_name_hash: %s\n", url_request.domain_name_hash);
   printf("url_request.ip_addr: %s\n", url_request.ip_addr);
   printf("url_request.domain_name: %s\n", url_request.domain_name);
   printf("url_request.client_command: %s\n", url_request.client_command);
   printf("url_request.http_version: %s\n", url_request.http_version);
-#endif
-
-  /* Check to see if the URL is still cached or not */
-  url_cache_check(&url_request);
-
   printf("url_request.cache_file: %d\n", url_request.cache_file);
+#endif
 
  
   /* If the cache is valid, don't start the webserver and send the file from the cache */
-  if(url_request.cache_file == true) 
-    send_file_from_cache(*accept_socket, &url_request);
-  else
+  if(url_request.cache_file == true) { 
+    send_file_from_cache(*accept_socket, &url_request, temp_buffer);
+    exit(0);
+  } else {
     send_file_from_webserver(*accept_socket, &url_request);
-
+  }
+  
   return NULL;
 }
 

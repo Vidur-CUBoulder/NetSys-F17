@@ -1,5 +1,5 @@
 all:
-	gcc web_proxy.c -o web_proxy -lpthread -lssl -lcrypto
+	gcc web_proxy.c -g -o web_proxy -lpthread -lssl -lcrypto
 
 tags:
 	ctags-exuberant -R ./ ~/GitHub/glibc ~/GitHub/openssl .
