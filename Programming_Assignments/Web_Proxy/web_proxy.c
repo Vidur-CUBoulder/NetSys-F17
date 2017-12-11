@@ -25,13 +25,21 @@
 
 int32_t client_slots[MAX_CONNECTIONS];
 
+char respond_403_error[200] = "<html><body>403 FORBIDDEN</body></html>\0";
 char respond_400_error[200] = "<html><body>400 Bad Request Reason: Invalid Method</body></html>\0";
 char respond_404_error[300] = "<html><body>404 NOT Found Reason URL does not exist</body></html>\0";
 
 uint16_t proxy_timeout_value = 0;
-  
+
+char blacklist_array[10][80];
+uint8_t blacklist_count = 0;
 
 struct hostent cache_he[10];
+
+typedef enum __blacklist_status_t {
+  ACCEPT, 
+  REJECT
+} blacklist_status;
 
 typedef struct __URL_information {
   uint32_t port_num;
@@ -85,7 +93,7 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   return;
 }
 
-int hostname_to_ip(char * hostname , char* ip)
+blacklist_status hostname_to_ip(char * hostname , char* ip)
 {
   struct hostent *he;
   struct in_addr **addr_list;
@@ -98,15 +106,22 @@ int hostname_to_ip(char * hostname , char* ip)
     printf("cache_he.h_addrtype: %d\n", cache_he[i].h_addrtype);
     printf("hostname passed: %s\n", hostname);
 #endif
+   
     if(!strcmp(hostname, cache_he[i].h_name)) {
-      
       addr_list = (struct in_addr **) cache_he[i].h_addr_list;
       for(int i = 0; addr_list[i] != NULL; i++) 
       {
-        //Return the first one;
         strcpy(ip , inet_ntoa(*addr_list[i]) );
-        //printf("<%s>: addr: %s\n", __func__, cache_he[i].h_name);
-        return 0;
+      }
+      return ACCEPT;
+    }
+    
+    /* Iterate the blacklist to check if the ip/hostname is valid or not */
+    for(int k = 0; k < blacklist_count; k++) {
+      if(!strcmp(blacklist_array[k], cache_he[i].h_name)||\
+          !(strcmp(blacklist_array[k], ip))) {
+        printf("Reject Request!!\n");
+        return REJECT;
       }
     }
   }
@@ -115,7 +130,7 @@ int hostname_to_ip(char * hostname , char* ip)
   {
     // get the host info
     herror("gethostbyname");
-    return 1;
+    return REJECT;
   }
 
   /* cache the struct */
@@ -125,13 +140,19 @@ int hostname_to_ip(char * hostname , char* ip)
   
   for(int i = 0; addr_list[i] != NULL; i++) 
   {
-    //Return the first one;
     strcpy(ip , inet_ntoa(*addr_list[i]) );
-    printf("<%s>: addr: %s\n", __func__, he->h_name);
-    return 0;
+  }
+  
+  /* Iterate the blacklist to check if the ip/hostname is valid or not */
+  for(int k = 0; k < blacklist_count; k++) {
+    if(!strcmp(blacklist_array[k], he->h_name)||\
+        !(strcmp(blacklist_array[k], ip))) {
+      printf("Reject Request!!\n");
+      return REJECT;
+    }
   }
 
-  return 1;
+  return ACCEPT;
 }
 
 void create_md5_hash(char *digest_buffer, char *buffer)
@@ -437,8 +458,14 @@ void *parse_client_request(void *accept_socket_number)
 #endif
 
   /* Get the IP address for the hostname */
-  hostname_to_ip(url_request.domain_name, url_request.ip_addr);
-  
+  blacklist_status status = hostname_to_ip(url_request.domain_name, url_request.ip_addr);
+  if(status == REJECT) {
+    printf("Nope... Not sending anything, EXIT!!\n");
+    send(*accept_socket, respond_403_error, strlen(respond_403_error), 0);
+    close(*accept_socket);
+    pthread_exit(NULL);
+  }
+
   /* Get the MD5 hash for the passed URL */
   memset(url_request.domain_name_hash, '\0', sizeof(url_request.domain_name_hash));
   create_md5_hash(url_request.domain_name_hash, temp_buffer);
@@ -490,6 +517,28 @@ int get_client_request(int *accept_socket, int server_socket,\
   return 0;
 }
 
+
+void read_blacklist_file(void)
+{
+  FILE *fp = NULL;
+  fp = fopen("./ip_blacklist", "rb");
+  if(fp == 0) {
+    fprintf(stderr, "filed to open the blacklist file\n");
+    exit(0);
+  }
+
+  int i = 0;
+  while(i < 10 && fgets(blacklist_array[blacklist_count], sizeof(blacklist_array[0]), fp)) {
+    blacklist_array[blacklist_count][strlen(blacklist_array[blacklist_count]) - 1] = '\0';
+    blacklist_count++;
+  }
+
+  fclose(fp);
+
+  return;
+}
+
+
 int main(int argc, char *argv[])
 {
   /* Get the port number for the proxy server from the 
@@ -505,6 +554,10 @@ int main(int argc, char *argv[])
   if(argv[2] != NULL) {
     proxy_timeout_value = atoi(argv[2]);
   }
+
+  /* Read blacklist file and store in array */
+  read_blacklist_file();
+  printf("%s\n", blacklist_array[3]);
 
   int server_sock = 0;
   struct sockaddr_in address;
