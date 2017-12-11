@@ -29,6 +29,9 @@ char respond_400_error[200] = "<html><body>400 Bad Request Reason: Invalid Metho
 char respond_404_error[300] = "<html><body>404 NOT Found Reason URL does not exist</body></html>\0";
 
 uint16_t proxy_timeout_value = 0;
+  
+
+struct hostent cache_he[10];
 
 typedef struct __URL_information {
   uint32_t port_num;
@@ -37,7 +40,7 @@ typedef struct __URL_information {
   char domain_name[100];
   char filename[1000];
   char http_version[20];
-  char domain_name_hash[MD5_DIGEST_LENGTH*2+1];
+  char domain_name_hash[(MD5_DIGEST_LENGTH*2)+1];
   bool cache_file;
 } parsed_url;
 
@@ -86,21 +89,45 @@ int hostname_to_ip(char * hostname , char* ip)
 {
   struct hostent *he;
   struct in_addr **addr_list;
-  int i;
+  static uint16_t ip_cache_count = 0;
 
-  if ( (he = gethostbyname( hostname ) ) == NULL) 
+  /* Check if the hostname and ip is already cached or not */
+  for(int i = 0; i<ip_cache_count; i++) {
+#ifdef IP_CACHE_DEBUG
+    printf("cache_he.h_name: %s\n", cache_he[i].h_name);
+    printf("cache_he.h_addrtype: %d\n", cache_he[i].h_addrtype);
+    printf("hostname passed: %s\n", hostname);
+#endif
+    if(!strcmp(hostname, cache_he[i].h_name)) {
+      
+      addr_list = (struct in_addr **) cache_he[i].h_addr_list;
+      for(int i = 0; addr_list[i] != NULL; i++) 
+      {
+        //Return the first one;
+        strcpy(ip , inet_ntoa(*addr_list[i]) );
+        //printf("<%s>: addr: %s\n", __func__, cache_he[i].h_name);
+        return 0;
+      }
+    }
+  }
+
+  if ((he = gethostbyname(hostname)) == NULL) 
   {
     // get the host info
     herror("gethostbyname");
     return 1;
   }
 
+  /* cache the struct */
+  memcpy(&cache_he[ip_cache_count++], he, sizeof(struct hostent));
+  
   addr_list = (struct in_addr **) he->h_addr_list;
-
-  for(i = 0; addr_list[i] != NULL; i++) 
+  
+  for(int i = 0; addr_list[i] != NULL; i++) 
   {
     //Return the first one;
     strcpy(ip , inet_ntoa(*addr_list[i]) );
+    printf("<%s>: addr: %s\n", __func__, he->h_name);
     return 0;
   }
 
@@ -435,8 +462,8 @@ void *parse_client_request(void *accept_socket_number)
  
   /* If the cache is valid, don't start the webserver and send the file from the cache */
   if(url_request.cache_file == true) { 
+    printf("++++++++++++++++++FROM CACHE+++++++++++++++++++\n");
     send_file_from_cache(*accept_socket, &url_request, temp_buffer);
-    exit(0);
   } else {
     send_file_from_webserver(*accept_socket, &url_request);
   }
