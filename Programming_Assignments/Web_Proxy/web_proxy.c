@@ -56,7 +56,7 @@ typedef struct __cache_file_operations {
   char pwd_string[100];
 } cache_info;
 
-void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr,\
+void create_server_connections(int *server_sock, struct sockaddr_in *server_addr,\
                                 int server_addr_len, int tcp_port)
 {
   if(server_addr == NULL) {
@@ -64,7 +64,7 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   }
 
   (*server_sock) = socket(AF_INET, TCP_SOCKETS, 0);
-  //(*server_sock) = socket(AF_INET, TCP_SOCKETS, SO_REUSEADDR);
+  //(*server_sock) = socket(af_inet, tcp_sockets, so_reuseaddr);
   int optval = 1;
   setsockopt((*server_sock), SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
   
@@ -73,21 +73,21 @@ void Create_Server_Connections(int *server_sock, struct sockaddr_in *server_addr
   server_addr->sin_port = htons(tcp_port);
   server_addr->sin_addr.s_addr = INADDR_ANY;
 
-  /* Bind the server to the client */
+  /* bind the server to the client */
   int ret_val = bind(*server_sock, (struct sockaddr *)server_addr, server_addr_len);
   if(ret_val < 0) {
-    perror("ERROR:bind()\n");
+    perror("error:bind()\n");
     close(*server_sock); 
     exit(1);
   }
 
-  /* Start listening for the connection on the socket 
-   * Currently, limit the backlog connections to 5. This value will be 
+  /* start listening for the connection on the socket 
+   * currently, limit the backlog connections to 5. this value will be 
    * maxed out depending on the value that is in /proc/sys/ipv4/tcp_max_syn_backlog
   */
   ret_val = listen(*server_sock, 5);
   if(ret_val < 0) {
-    perror("ERROR:listen()\n");
+    perror("error:listen()\n");
     exit(1);
   }
   return;
@@ -296,10 +296,10 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   memset(server_request, '\0', sizeof(server_request));
 
   if(url_request->filename[0] == '\0') {
-    sprintf(server_request, "GET / %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
+    sprintf(server_request, "GET / %s\r\nHost: %s\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n",\
         url_request->http_version, url_request->domain_name);
   } else {
-    sprintf(server_request, "GET /%s %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
+    sprintf(server_request, "GET /%s %s\r\nHost: %s\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n",\
         url_request->filename, url_request->http_version, url_request->domain_name);
   }
   
@@ -566,7 +566,7 @@ int main(int argc, char *argv[])
   /* Initialize the socket values to -1 */
   memset(client_slots, -1, sizeof(client_slots));
 
-  Create_Server_Connections(&server_sock, &address, sizeof(address), proxy_portnum);
+  create_server_connections(&server_sock, &address, sizeof(address), proxy_portnum);
 
   socklen_t addrlen = sizeof(address);
 
