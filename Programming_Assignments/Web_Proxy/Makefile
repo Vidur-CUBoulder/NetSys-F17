@@ -6,4 +6,4 @@ tags:
 
 clean:
 	rm web_proxy
-
+	rm -rvf cache/

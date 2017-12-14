@@ -23,6 +23,8 @@
 #define DEBUG_URL_PARSER
 #define MAX_BUFFER_SIZE 2048
 
+#define IP_CACHE_DEBUG
+
 int32_t client_slots[MAX_CONNECTIONS];
 
 char respond_403_error[200] = "<html><body>403 FORBIDDEN</body></html>\0";
@@ -31,7 +33,13 @@ char respond_404_error[300] = "<html><body>404 NOT Found Reason URL does not exi
 
 uint16_t proxy_timeout_value = 0;
 
-char blacklist_array[10][80];
+typedef struct __blacklist_struct {
+  char blacklist_array[10][80];
+  char ip_list[10][80];
+  uint8_t ip_list_count;
+} b_list;
+b_list blist;
+
 uint8_t blacklist_count = 0;
 
 struct hostent cache_he[10];
@@ -95,34 +103,17 @@ void create_server_connections(int *server_sock, struct sockaddr_in *server_addr
 
 blacklist_status hostname_to_ip(char * hostname , char* ip)
 {
-  struct hostent *he;
-  struct in_addr **addr_list;
+  struct hostent *he = NULL;
+  struct in_addr **addr_list = NULL;
   static uint16_t ip_cache_count = 0;
-
-  /* Check if the hostname and ip is already cached or not */
-  for(int i = 0; i<ip_cache_count; i++) {
-#ifdef IP_CACHE_DEBUG
-    printf("cache_he.h_name: %s\n", cache_he[i].h_name);
-    printf("cache_he.h_addrtype: %d\n", cache_he[i].h_addrtype);
-    printf("hostname passed: %s\n", hostname);
-#endif
-   
-    if(!strcmp(hostname, cache_he[i].h_name)) {
-      addr_list = (struct in_addr **) cache_he[i].h_addr_list;
-      for(int i = 0; addr_list[i] != NULL; i++) 
-      {
-        strcpy(ip , inet_ntoa(*addr_list[i]) );
-      }
-      return ACCEPT;
-    }
-    
-    /* Iterate the blacklist to check if the ip/hostname is valid or not */
-    for(int k = 0; k < blacklist_count; k++) {
-      if(!strcmp(blacklist_array[k], cache_he[i].h_name)||\
-          !(strcmp(blacklist_array[k], ip))) {
-        printf("Reject Request!!\n");
-        return REJECT;
-      }
+ 
+  /* First check from the cached hostnames */
+  for(int i = 0; i<blacklist_count; i++) {
+    printf("%s\n", blist.blacklist_array[i]);
+    printf("%s\n", hostname);
+    //getchar();
+    if(!strcmp(hostname, blist.blacklist_array[i])) {
+      return REJECT;
     }
   }
 
@@ -142,18 +133,84 @@ blacklist_status hostname_to_ip(char * hostname , char* ip)
   {
     strcpy(ip , inet_ntoa(*addr_list[i]) );
   }
-  
-  /* Iterate the blacklist to check if the ip/hostname is valid or not */
-  for(int k = 0; k < blacklist_count; k++) {
-    if(!strcmp(blacklist_array[k], he->h_name)||\
-        !(strcmp(blacklist_array[k], ip))) {
-      printf("Reject Request!!\n");
+
+  /* Store these IPs are well */
+  //printf("------>ip: %s\n", ip);
+
+  for(int i = 0; i<blacklist_count; i++) {
+    printf("%s\n", blist.blacklist_array[i]);
+    if(!strcmp(ip, blist.blacklist_array[i])) {
       return REJECT;
     }
   }
 
   return ACCEPT;
 }
+
+#if 0
+blacklist_status hostname_to_ip(char * hostname , char* ip)
+{
+  struct hostent *he = NULL;
+  struct in_addr **addr_list = NULL;
+  static uint16_t ip_cache_count = 0;
+
+  /* Check if the hostname and ip is already cached or not */
+  for(int i = 0; i<ip_cache_count; i++) {
+#ifdef IP_CACHE_DEBUG
+    printf("cache_he.h_name: %s\n", cache_he[i].h_name);
+    printf("cache_he.h_addrtype: %d\n", cache_he[i].h_addrtype);
+    printf("hostname passed: %s\n", hostname);
+    printf("ip_cache_count: %d\n", i);
+#endif
+   
+    if(!strcmp(hostname, cache_he[i].h_name)) {
+      addr_list = (struct in_addr **) cache_he[i].h_addr_list;
+      for(int i = 0; addr_list[i] != NULL; i++) 
+      {
+        strcpy(ip , inet_ntoa(*addr_list[i]) );
+      }
+      return ACCEPT;
+    }
+    
+    /* Iterate the blacklist to check if the ip/hostname is valid or not */
+    for(int k = 0; k < blacklist_count; k++) {
+      printf("blacklist_array[k]: %s\n", blacklist_array[k]);
+      if(!strcmp(blacklist_array[k], hostname)||\
+          !(strcmp(blacklist_array[k], ip))) {
+        printf("Reject<I> Request!!\n");
+        return REJECT;
+      }
+    }
+  }
+  if ((he = gethostbyname(hostname)) == NULL) 
+  {
+    // get the host info
+    herror("gethostbyname");
+    return REJECT;
+  }
+
+  /* cache the struct */
+  memcpy(&cache_he[ip_cache_count++], he, sizeof(struct hostent));
+  
+  addr_list = (struct in_addr **) he->h_addr_list;
+  
+  for(int i = 0; addr_list[i] != NULL; i++) 
+  {
+    strcpy(ip , inet_ntoa(*addr_list[i]) );
+  }
+  /* Iterate the blacklist to check if the ip/hostname is valid or not */
+  for(int k = 0; k < blacklist_count; k++) {
+    if(!strcmp(blacklist_array[k], he->h_name)||\
+        !(strcmp(blacklist_array[k], ip))) {
+      printf("Reject<II> Request!!\n");
+      return REJECT;
+    }
+  }
+  //sleep(1);
+  //getchar();
+  return ACCEPT;
+}
+#endif
 
 void create_md5_hash(char *digest_buffer, char *buffer)
 {
@@ -296,10 +353,10 @@ void send_file_from_webserver(int client_sock_num, parsed_url *url_request)
   memset(server_request, '\0', sizeof(server_request));
 
   if(url_request->filename[0] == '\0') {
-    sprintf(server_request, "GET / %s\r\nHost: %s\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n",\
+    sprintf(server_request, "GET / %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
         url_request->http_version, url_request->domain_name);
   } else {
-    sprintf(server_request, "GET /%s %s\r\nHost: %s\r\nAccept: */*\r\nConnection: keep-alive\r\n\r\n",\
+    sprintf(server_request, "GET /%s %s\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n",\
         url_request->filename, url_request->http_version, url_request->domain_name);
   }
   
@@ -381,6 +438,62 @@ void send_file_from_cache(int send_sock_num, parsed_url *url_request, char *temp
 
   /* release the file pointer once you're done sending */
   fclose(fp);
+
+  return;
+}
+
+void prefetch_files(int accept_socket, parsed_url *url_request)
+{
+  FILE *open_fp = NULL;
+  char *temp_buf = url_request->domain_name;
+  printf("temp_buf: %s\n", temp_buf);
+  
+  char path_string[60];
+  memset(path_string, '\0', sizeof(path_string));
+  
+  size_t read = 0;
+  size_t line_len = 0;
+
+  char *line_buffer;
+
+  char http_buffer[400];
+  memset(http_buffer, '\0', sizeof(http_buffer));
+
+  if(!strstr(temp_buf, ".org") || !strstr(temp_buf, ".edu") ||\
+      !strstr(temp_buf, ".com")) {
+    
+    /* Get this file and put it in the cache */
+    send_file_from_webserver(accept_socket, url_request);
+    sprintf(path_string, "./cache/%s", url_request->domain_name_hash);
+
+    open_fp = fopen(path_string, "rb");
+    if(open_fp == NULL) {
+      printf("Open failed!\n");
+      return;
+    } else {
+      printf("Opened the correct file!\n");
+      /* Now read the file line by line and chk for string */
+      while((read = getline(&line_buffer, &line_len, open_fp)) != -1) {
+        memset(http_buffer, '\0', sizeof(http_buffer));
+        char *href_buf = strstr(line_buffer, "a href=\"http://");
+        if(href_buf != NULL) {
+          href_buf = href_buf + 8; 
+          int k = 0;
+          while(*href_buf != '"') {
+            http_buffer[k] = *href_buf;
+            href_buf++; k++;
+          }
+          printf("http_buffer: %s\n", http_buffer);
+          getchar();
+        }
+      } 
+    }
+    printf("waiting now....\n");
+    getchar();
+  }
+  
+  /* Cleanup before you leave */
+  fclose(open_fp);
 
   return;
 }
@@ -473,6 +586,8 @@ void *parse_client_request(void *accept_socket_number)
   /* Check to see if the URL is still cached or not */
   url_cache_check(&url_request);
 
+  //prefetch_files(*accept_socket, &url_request);
+
 #ifdef DEBUG_URL_PARSER
   printf("<%lu>: url_request.domain_name: %s\n", strlen(url_request.domain_name),\
                                               url_request.domain_name);
@@ -528,8 +643,8 @@ void read_blacklist_file(void)
   }
 
   int i = 0;
-  while(i < 10 && fgets(blacklist_array[blacklist_count], sizeof(blacklist_array[0]), fp)) {
-    blacklist_array[blacklist_count][strlen(blacklist_array[blacklist_count]) - 1] = '\0';
+  while(i < 10 && fgets(blist.blacklist_array[blacklist_count], sizeof(blist.blacklist_array[0]), fp)) {
+    blist.blacklist_array[blacklist_count][strlen(blist.blacklist_array[blacklist_count]) - 1] = '\0';
     blacklist_count++;
   }
 
@@ -557,7 +672,6 @@ int main(int argc, char *argv[])
 
   /* Read blacklist file and store in array */
   read_blacklist_file();
-  printf("%s\n", blacklist_array[3]);
 
   int server_sock = 0;
   struct sockaddr_in address;
